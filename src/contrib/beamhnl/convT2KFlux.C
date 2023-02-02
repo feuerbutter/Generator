@@ -19,7 +19,7 @@ void convT2KFlux(std::string T2Kflux_filename){
 
     //------------variables-------------
 
-    int n_conv = 100; // # of entries to convert
+    int n_conv = 100000; // # of entries to convert
     double pots = (double) n_conv;
 
     int job    = 1;
@@ -49,7 +49,7 @@ void convT2KFlux(std::string T2Kflux_filename){
 
     dkTree->Branch( "job",              &job,                  "job/I"                             );
     dkTree->Branch( "potnum",           &pots,               "potnum/D"                          );
-    dkTree->Branch( "decay_ptype",      &ppid,        "decay_ptype/I"                     );
+    dkTree->Branch( "decay_ptype",      &ppid_pdg,        "decay_ptype/I"                     );
     dkTree->Branch( "decay_vx",         &decay_vx,           "decay_vx/D"                        );
     dkTree->Branch( "decay_vy",         &decay_vy,           "decay_vy/D"                        );
     dkTree->Branch( "decay_vz",         &decay_vz,           "decay_vz/D"                        );
@@ -63,24 +63,27 @@ void convT2KFlux(std::string T2Kflux_filename){
 
     for (int edx=0;edx<n_conv;edx++){
         t_t2k->GetEntry(edx);
-        std::cout << "=======Checking event " << edx << "====================" << std::endl;
+	if( edx % 100 == 0 )
+	    std::cout << "=======Checking event " << edx << "====================" << std::endl;
         decay_vx = (double) xpi[0];
         decay_vy = (double) xpi[1];
         decay_vz = (double) xpi[2];
-        printf("Decay vertex at : (%6.3f,%6.3f,%6.3f)\n",decay_vx,decay_vy,decay_vz);
+        //printf("Decay vertex at : (%6.3f,%6.3f,%6.3f) [cm]\n",decay_vx,decay_vy,decay_vz);
 
         decay_pdpx = (double) ppi * npi[0];
         decay_pdpy = (double) ppi * npi[1];
         decay_pdpz = (double) ppi * npi[2];
+
+	ppid_pdg = (*convT2K::g32pdg.find(ppid)).second;
 
         double m_par = convT2K::getMassPar(ppid);
         double E_par = std::sqrt((decay_pdpx*decay_pdpx) + (decay_pdpy*decay_pdpy)+(decay_pdpz*decay_pdpz) +m_par*m_par );
 
         decay_necm = boostNu(Enu*nnu[0],Enu*nnu[1],Enu*nnu[2],Enu,decay_pdpx,decay_pdpy,decay_pdpz,E_par);
 
-        printf("Parent id is %d, with mass %6.3f GeV, and energy %6.3f GeV \n",ppid,m_par,E_par);
-        printf("parent momentum is : (%6.3f,%6.3f,%6.3f)\n",decay_pdpx,decay_pdpy,decay_pdpz);
-        printf("neutrino momentum is : (%6.3f,%6.3f,%6.3f,%6.3f)\n",Enu*nnu[0],Enu*nnu[1],Enu*nnu[2],Enu);
+        //printf("Parent id is %d, with mass %6.3f GeV, and energy %6.3f GeV \n",ppid,m_par,E_par);
+        //printf("parent momentum is : (%6.3f,%6.3f,%6.3f)\n",decay_pdpx,decay_pdpy,decay_pdpz);
+        //printf("neutrino momentum is : (%6.3f,%6.3f,%6.3f,%6.3f)\n",Enu*nnu[0],Enu*nnu[1],Enu*nnu[2],Enu);
 
         dkTree->Fill();
         dkMeta->Fill();

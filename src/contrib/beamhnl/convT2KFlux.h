@@ -2,8 +2,12 @@
 #define convT2kFlux_h
 
 #include <map>
-#include "TLorentzVector.h"
+#include <cstdio>
+#include <iostream>
 
+#include "TLorentzVector.h"
+#include "TFile.h"
+#include "TTree.h"
 
 namespace convT2K{
 
@@ -19,10 +23,12 @@ namespace convT2K{
     float       npi[3];          // direction of parent
     float       ppi;             // momentum of parent
     int         ppid;            // PID of parent based on Geant3
+    int         ppid_pdg;        // Parent PDG code
     float       Enu;             // neutrino energy in lab frame
     float       nnu[3];          // direction of neutrino 
     float       m_parent;        // mass of parent particle
 
+    std::map< int, int > g32pdg = { { 1, 22 }, { 2, -11 }, { 3, 11 }, { 4, 12 }, { 5, -13 }, { 6, 13 }, { 7, 111 }, { 8, 211 }, { 9, -211 }, { 10, 130 }, { 11, 321 }, { 12, -321 }, { 13, 2112 }, { 14, 2212 }, { 15, -2212 }, { 16, 130 } }; // there are more but w/e
 
     // int         dArSize           = 0;         // Size of location arrays
     // int         dAnArSize         = 0;         // Size of ancestor arrays
