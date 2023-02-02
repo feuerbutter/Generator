@@ -19,7 +19,7 @@ void convT2KFlux(std::string T2Kflux_filename){
 
     //------------variables-------------
 
-    int n_conv = 100000; // # of entries to convert
+    int n_conv = n_evt; // # of entries to convert
     double pots = (double) n_conv;
 
     int job    = 1;
@@ -105,7 +105,7 @@ double convT2K::boostNu(double px, double py, double pz, double E, double px_p, 
     boosted_neutrino.Boost(-parent.BoostVector());
     
     // you can check the values of the four-momentum in the rest frame of the parent meson
-    cout << "Boosted neutrino four-momentum: " << boosted_neutrino.X() << " " << boosted_neutrino.Y() << " " << boosted_neutrino.Z() << " " << boosted_neutrino.T() << endl;
+    // cout << "Boosted neutrino four-momentum: " << boosted_neutrino.X() << " " << boosted_neutrino.Y() << " " << boosted_neutrino.Z() << " " << boosted_neutrino.T() << endl;
 
     return boosted_neutrino.T();
 }
