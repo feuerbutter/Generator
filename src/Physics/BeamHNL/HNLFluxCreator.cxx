@@ -276,6 +276,13 @@ flux::GNuMIFluxPassThroughInfo FluxCreator::MakeTupleFluxEntry( int iEntry, std:
   assert( imap < dynamicScores.size() ); // should have decayed to *some* HNL
   prodChan = (*pdit).first;
 
+  // assert production as K+- --> N + mu+-
+  assert( fU4l2s.at(1) > 0.0 );
+  if( !utils::hnl::IsProdKinematicallyAllowed( kHNLProdKaon2Muon ) ){
+      this->FillNonsense( iEntry, &gnmf ); return gnmf;
+  }
+  prodChan = kHNLProdKaon2Muon;
+  
   LOG( "HNL", pDEBUG )
     << "Selected channel: " << utils::hnl::ProdAsString( prodChan );
   
