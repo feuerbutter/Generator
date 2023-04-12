@@ -10,7 +10,7 @@
           
 \created   March 31st, 2022
 
-\cpright   Copyright (c) 2003-2022, The GENIE Collaboration
+\cpright   Copyright (c) 2003-2023, The GENIE Collaboration
            For the full text of the license visit http://copyright.genie-mc.org          
 */
 //____________________________________________________________________________
@@ -36,22 +36,24 @@
 #include "Framework/GHEP/GHepRecord.h"
 #include "Framework/Messenger/Messenger.h"
 #include "Framework/Numerical/RandomGen.h"
+#include "Framework/ParticleData/PDGCodes.h"
 #include "Framework/Utils/UnitUtils.h"
 #include "Framework/Utils/PrintUtils.h"
 
-#include "Physics/BeamHNL/HNLDecayer.h"
+#include "Physics/BeamHNL/HNLGeomRecordVisitorI.h"
 
 namespace genie {
 namespace hnl {
 
   class SimpleHNL;
 
-  class VertexGenerator : public EventRecordVisitorI {
+  class VertexGenerator : public GeomRecordVisitorI {
 
   public:
 
     VertexGenerator();
-    VertexGenerator(string config);
+    VertexGenerator(string name);
+    VertexGenerator(string name, string config);
     ~VertexGenerator();
 
     //-- implement the EventRecordVisitorI interface
@@ -121,6 +123,8 @@ namespace hnl {
 
     TVector3 ApplyUserRotation( TVector3 vec, bool doBackwards ) const;
     TVector3 ApplyUserRotation( TVector3 vec, TVector3 oriVec, std::vector<double> rotVec, bool doBackwards ) const;
+
+    std::string CheckGeomPoint( Double_t x, Double_t y, Double_t z ) const;
 
     // --------------------------------------------------
 

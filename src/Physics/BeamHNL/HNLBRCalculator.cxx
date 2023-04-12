@@ -1,7 +1,7 @@
 
 //----------------------------------------------------------------------------
 /*!
-  Copyright (c) 2003-2022, The GENIE Collaboration
+  Copyright (c) 2003-2023, The GENIE Collaboration
   For the full text of the license visit http://copyright.genie-mc.org
   
   Author: John Plows <komninos-john.plows \at physics.ox.ac.uk>
@@ -253,7 +253,7 @@ double BRCalculator::DWidth_Global( HNLDecayMode_t hnldm, const double M ) const
   switch( hnldm ){
   case kHNLDcyNuNuNu   : return this->DWidth_Invisible( M, fUe42, fUm42, fUt42 );
   case kHNLDcyNuEE     : return this->DWidth_SameLepton( M, fUe42, fUm42, fUt42, mE, false );
-  case kHNLDcyNuMuE    : return this->DWidth_DiffLepton( M, fUe42, fUm42, fMajorana );
+  case kHNLDcyNuMuE    : return (this->DWidth_DiffLepton( M, fUe42, fUm42, fMajorana ) + this->DWidth_DiffLepton( M, fUm42, fUe42, fMajorana ));
   case kHNLDcyPi0Nu    : return this->DWidth_PiZeroAndNu( M, fUe42, fUm42, fUt42 );
   case kHNLDcyPiE      : return this->DWidth_PiAndLepton( M, fUe42, mE );
   case kHNLDcyNuMuMu   : return this->DWidth_SameLepton( M, fUe42, fUm42, fUt42, mMu, true );
@@ -307,7 +307,7 @@ double BRCalculator::DWidth_DiffLepton( const double M, const double Ua42, const
   const double kinPol = 1. - 8. * x*x + 8. * TMath::Power( x, 6. ) - TMath::Power( x, 8. );
   const double kinLn  = -12. * TMath::Power( x, 4. ) * TMath::Log( x*x );
   const double kinPart = kinPol + kinLn;
-  const double coupPart = IsMajorana ? Ua42 : Ua42 + Ub42; // 2nd diagram in Majorana case!
+  const double coupPart = (!IsMajorana) ? Ua42 : Ua42 + Ub42; // 2nd diagram in Majorana case!
   return preFac * kinPart * coupPart;
 }
 //----------------------------------------------------------------------------

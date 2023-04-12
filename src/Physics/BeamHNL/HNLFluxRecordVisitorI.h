@@ -16,27 +16,27 @@
 
 \created January 22nd, 2023
 
-\cpright Copyright (c) 2003-2022, The GENIE Collaboration
+\cpright Copyright (c) 2003-2023, The GENIE Collaboration
          For the full text of the license visit http://copyright.genie-mc.org
 */
 //____________________________________________________________________________
 
-#ifndef _GNUMI_FLUX_RECORD_VISITOR_I_H_
-#define _GNUMI_FLUX_RECORD_VISITOR_I_H_
+#ifndef _HNL_FLUX_RECORD_VISITOR_I_H_
+#define _HNL_FLUX_RECORD_VISITOR_I_H_
 
-#include "Framework/EventGen/EventRecordVisitorI.h"
+//#include "Framework/EventGen/EventRecordVisitorI.h"
+#include "Physics/BeamHNL/HNLGeomRecordVisitorI.h"
+#include "Physics/BeamHNL/HNLFluxContainer.h"
 
 namespace genie {
 
   class GHepRecord;
 
-  namespace flux {
-    class GNuMIFluxPassThroughInfo;
-  }
-
   namespace hnl {
 
-    class FluxRecordVisitorI: public EventRecordVisitorI {
+    class FluxContainer;
+
+    class FluxRecordVisitorI: public GeomRecordVisitorI {
 
     public:
 
@@ -46,9 +46,7 @@ namespace genie {
 
       virtual void ProcessEventRecord(GHepRecord * event_rec) const = 0;
 
-      virtual flux::GNuMIFluxPassThroughInfo * RetrieveGNuMIFluxPassThroughInfo() const = 0;
-      virtual flux::GNuMIFluxPassThroughInfo RetrieveFluxInfo() const = 0;
-      virtual flux::GNuMIFluxPassThroughInfo RetrieveFluxBase() const = 0;
+      virtual FluxContainer RetrieveFluxInfo() const = 0;
 
       virtual std::vector< double > GetB2UTranslation() const = 0;
       virtual std::vector< double > GetB2URotation() const = 0;
@@ -72,4 +70,4 @@ namespace genie {
 
 } // namespace genie
 
-#endif // #ifndef _GNUMI_FLUX_RECORD_VISITOR_I_H_
+#endif // #ifndef _HNL_FLUX_RECORD_VISITOR_I_H_

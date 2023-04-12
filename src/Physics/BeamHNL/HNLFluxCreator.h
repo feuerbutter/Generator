@@ -1,10 +1,10 @@
 //----------------------------------------------------------------------------
 /*!
 
-  This is a module for GENIE to read in (gnumi) flux ntuples and construct HNL fluxes
+  This is a module for GENIE to read in hadron flux ntuples and construct HNL fluxes
   on the fly. 
   
-  Core loop: + Open dk2nu entry
+  Core loop: + Open flux entry
              + Get ancestry information
 	     + Assume decay to HNL (discard SM nu info, is unneeded)
 	     + Calculate HNL production mode based on parameter space read from config
@@ -20,7 +20,7 @@
 
 \created    April 25th, 2022
 
-\cpright    Copyright (c) 2003-2022, The GENIE Collaboration
+\cpright    Copyright (c) 2003-2023, The GENIE Collaboration
             For the full text of the license visit http://copyright.genie-mc.org
 
  */
@@ -73,17 +73,14 @@
 #include "Framework/ParticleData/PDGLibrary.h"
 #include "Framework/Utils/PrintUtils.h"
 
-#include "Tools/Flux/GNuMIFlux.h"
-
 #include "Physics/BeamHNL/HNLFluxRecordVisitorI.h"
 
 #include "Physics/BeamHNL/HNLBRCalculator.h"
 #include "Physics/BeamHNL/HNLDecayUtils.h"
 #include "Physics/BeamHNL/HNLEnums.h"
+#include "Physics/BeamHNL/HNLFluxContainer.h"
 #include "Physics/BeamHNL/HNLKinUtils.h"
 #include "Physics/BeamHNL/SimpleHNL.h"
-
-#endif // #ifndef _HNL_FLUXCREATOR_H_
 
 const double kRDET = 1.0; // calculate fluxes per m^2
 
@@ -92,16 +89,18 @@ namespace genie{
   namespace hnl{
     
     class SimpleHNL;
+    class FluxContainer;
     
     class FluxCreator : public FluxRecordVisitorI {
 
     public:
 
       FluxCreator();
-      FluxCreator(string config);
+      FluxCreator(string name);
+      FluxCreator(string name, string config);
       ~FluxCreator();
 
-      //-- implement the EventRecordVisitorI interface
+      //-- implement the FluxRecordVisitorI interface
       void ProcessEventRecord(GHepRecord * event_rec) const;
 
       // overload the Algorithm::Configure() methods to load private data
@@ -118,10 +117,8 @@ namespace genie{
       // set first entry for read-in from chain
       void SetFirstFluxEntry( int iFirst ) const;
 
-      // get dk2nu flux info
-      flux::GNuMIFluxPassThroughInfo * RetrieveGNuMIFluxPassThroughInfo() const;
-      flux::GNuMIFluxPassThroughInfo RetrieveFluxInfo() const;
-      flux::GNuMIFluxPassThroughInfo RetrieveFluxBase() const;
+      // get flux info
+      FluxContainer RetrieveFluxInfo() const;
 
       // return information about frames
       std::vector< double > GetB2UTranslation() const { return fB2UTranslation; }
@@ -140,9 +137,8 @@ namespace genie{
       void SetCurrentEntry( int iCurr ) const;
 
       // workhorse methods
-      genie::flux::GNuMIFluxPassThroughInfo MakeTupleFluxEntry( int iEntry, std::string finpath ) const;
-      void FillNonsense( int iEntry, genie::flux::GNuMIFluxPassThroughInfo * gnmf ) const;
-      void FillBase( int iEntry, genie::flux::GNuMIFluxPassThroughInfo &gnmf ) const;
+      FluxContainer MakeTupleFluxEntry( int iEntry, std::string finpath ) const;
+      void FillNonsense( int iEntry, genie::hnl::FluxContainer & gnmf ) const;
 
       // init
       void OpenFluxInput( std::string finpath ) const;
@@ -152,7 +148,7 @@ namespace genie{
       // returns HNL 4-momentum from random decay in same frame as p4par
       TLorentzVector HNLEnergy( genie::hnl::HNLProd_t hnldm, TLorentzVector p4par ) const;
       // gets random point in BBox and returns separation to it in BEAM FRAME
-      TVector3 PointToRandomPointInBBox( TVector3 detO_beam ) const;
+      TVector3 PointToRandomPointInBBox( ) const;
 
       void ReadBRs() const;
       std::map< genie::hnl::HNLProd_t, double > GetProductionProbs( int parPDG ) const;
@@ -198,7 +194,6 @@ namespace genie{
       mutable double BR_pi2mu, BR_pi2e, BR_K2mu, BR_K2e, BR_K3mu, BR_K3e, BR_K03mu, BR_K03e;
 
       mutable bool isParentOnAxis = true;
-      mutable bool fUseBeamMomentum = false; // use this if your detector hall is parallel to tgt hall
       mutable TGeoVolume * fTopVol = 0;
       mutable string fGeomFile = "";
       mutable bool fIsUsingRootGeom = false;
@@ -231,7 +226,14 @@ namespace genie{
       mutable std::vector< double > fFixedPolarisation;
 
       mutable int fLepPdg; // pdg code of co-produced lepton
+      mutable int fNuPdg; // pdg code of SM neutrino from same decay type
       mutable double parentMass, parentMomentum, parentEnergy; // GeV
+      mutable double fECM, fSMECM; // GeV
+      mutable double fZm, fZp; // deg
+
+      mutable int fProdChan, fNuProdChan;
+
+      mutable TVector3 fTargetPoint, fTargetPointUser;
 
       static const int maxArray = 30, maxC = 100;
 
@@ -282,8 +284,7 @@ namespace genie{
       mutable double location_x[maxArray], location_y[maxArray], location_z[maxArray];
       mutable char location_name[maxArray*maxC];
 
-      mutable genie::flux::GNuMIFluxPassThroughInfo fGnmf;
-      mutable genie::flux::GNuMIFluxPassThroughInfo fGnmf_base; // to store unchanged input info
+      mutable genie::hnl::FluxContainer fGnmf;
 
       mutable double POTScaleWeight;
       mutable std::vector<double> fScales;
@@ -291,6 +292,7 @@ namespace genie{
       mutable bool fDoingOldFluxCalc = false;
       mutable bool fRerollPoints = false;
       mutable double fRadius; // m
+      mutable bool fSupplyingBEAM = false;
       mutable bool fIsConfigLoaded = false;
 
       mutable bool fUsingDk2nu = true;
@@ -301,3 +303,5 @@ namespace genie{
       
   } // namespace hnl
 } // namespace genie
+
+#endif // #ifndef _HNL_FLUXCREATOR_H_

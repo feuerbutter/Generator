@@ -16,13 +16,13 @@
 
 \created January 23rd, 2023
 
-\cpright Copyright (c) 2003-2022, The GENIE Collaboration
+\cpright Copyright (c) 2003-2023, The GENIE Collaboration
          For the full text of the license visit http://copyright.genie-mc.org
 */
 //____________________________________________________________________________
 
-#ifndef _GNUMI_DECAY_RECORD_VISITOR_I_H_
-#define _GNUMI_DECAY_RECORD_VISITOR_I_H_
+#ifndef _HNL_DECAY_RECORD_VISITOR_I_H_
+#define _HNL_DECAY_RECORD_VISITOR_I_H_
 
 #include "Framework/EventGen/EventRecordVisitorI.h"
 
@@ -70,4 +70,4 @@ namespace genie {
 
 } // namespace genie
 
-#endif // #ifndef _GNUMI_DECAY_RECORD_VISITOR_I_H_
+#endif // #ifndef _HNL_DECAY_RECORD_VISITOR_I_H_
