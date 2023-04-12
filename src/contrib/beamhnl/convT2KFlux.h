@@ -11,22 +11,50 @@
 
 namespace convT2K{
 
+    // Utility functions
     double boostNu(double px, double py, double pz, double E, double px_p, double py_p, double pz_p, double E_p);
 
     double getMassPar(int pid);
 
+    void calCMKin(double m_parent, double m_dg1, double m_dg2);
 
+    std::vector<std::pair< Double_t, Double_t> > calOriGeomWeight(const TVector3& P3d_parent, const TVector3& pos_decay, const TVector3& pos_det);
+
+
+    // const variables
     const int maxArray = 30;
     const int maxC     = 100;
+    const float nd_x   = -322.2292;
+    const float nd_y   = -814.557;
+    const float nd_z   = 28010.0;
 
+    const double m_mu  = 0.105658;     //muon mass in GeV
+    float m_dg[2] = {0.105658, 0.0};            // the mass of the two decay products 
+    // m_dg[0] = m_mu;
+    // m_dg[1] = 0.0;
+
+    // < nd280HNLSim.DetConfig.xPosND = -322.2292 >  Deault X-coordinate of ND center in cm
+    // < nd280HNLSim.DetConfig.yPosND = -814.557  >  Deault Y-coordinate of ND center in cm
+    // < nd280HNLSim.DetConfig.zPosND = 28010.0   >  Deault Z-coordinate of ND center in cm
+
+    // t2k-flux input variables
     float       xpi[3];
     float       npi[3];          // direction of parent
     float       ppi;             // momentum of parent
+    int         mode;            // decay mode of the parent hadron
     int         ppid;            // PID of parent based on Geant3
     int         ppid_pdg;        // Parent PDG code
     float       Enu;             // neutrino energy in lab frame
     float       nnu[3];          // direction of neutrino 
+    float       xnu;             // x-position of nu hitting the dector
+    float       ynu;             // y-position of nu hitting the dector
+    float       t2k_norm;        // the combined weight input from the t2k flux
+
+    // calculated variables
     float       m_parent;        // mass of parent particle
+    float       beta_dg_cm[2];      // the speed for the two decay daugthers in the cm frame
+    float       E_dg_cm[2];         // the energy for the two decay daugthers in the cm frame
+    float       p_dg_cm;            // momentum of the decay products in the cm
 
     std::map< int, int > g32pdg = { { 1, 22 }, { 2, -11 }, { 3, 11 }, { 4, 12 }, { 5, -13 }, { 6, 13 }, { 7, 111 }, { 8, 211 }, { 9, -211 }, { 10, 130 }, { 11, 321 }, { 12, -321 }, { 13, 2112 }, { 14, 2212 }, { 15, -2212 }, { 16, 130 } }; // there are more but w/e
 
@@ -158,6 +186,22 @@ namespace convT2K{
             return pid_mass_map[pid];
         }
     }
+
+    
+    void calCMKin(double m_parent, double m_dg1, double m_dg2){
+        E_dg_cm[0] =(m_parent*m_parent - m_dg2*m_dg2 + m_dg1*m_dg1)/(2.0*m_parent);
+        E_dg_cm[1] = m_parent - E_dg_cm[0]; 
+        p_dg_cm = sqrt(E_dg_cm[1]*E_dg_cm[1] - m_dg2*m_dg2);
+	
+	    beta_dg_cm[0] = beta_dg_cm[1] = 0.;
+	
+	    if(E_dg_cm[0]!=0)
+	      beta_dg_cm[0] = p_dg_cm/E_dg_cm[0];
+	
+	    if(E_dg_cm[1]!=0)
+	      beta_dg_cm[1] = p_dg_cm/E_dg_cm[1];
+    }
+        
 }
 
 
