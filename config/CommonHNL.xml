@@ -24,7 +24,7 @@ April 11th, 2022
 <common_HNL_list>
 
   <param_set name="ParameterSpace">
-    <param type="double" name="HNL-Mass"> 0.200 </param> <!-- GeV -->
+    <param type="double" name="HNL-Mass"> 1.0e-6 </param> <!-- GeV -->
     <param type="vec-double" name="HNL-LeptonMixing" delim=";"> 1.0e-7 ; 1.0e-7 ; 0.0 </param>
     <param type="bool" name="HNL-Majorana"> false </param>
     <!-- <param type="int" name="HNL-Type"> 2 </param> --> <!-- 0 = pure-N, 1 = pure-Nbar, 2 = mix -->
@@ -35,10 +35,10 @@ April 11th, 2022
   <param_set name="InterestingChannels">
     <!-- 2-body decays -->
     <param type="bool" name="HNL-2B_mu_pi"> false </param>
-    <param type="bool" name="HNL-2B_e_pi"> true </param>
+    <param type="bool" name="HNL-2B_e_pi"> false </param>
     <param type="bool" name="HNL-2B_nu_pi0"> false </param>
     <!-- 3-body decays -->
-    <param type="bool" name="HNL-3B_nu_nu_nu"> false </param>
+    <param type="bool" name="HNL-3B_nu_nu_nu"> true </param>
     <param type="bool" name="HNL-3B_nu_mu_mu"> false </param>
     <param type="bool" name="HNL-3B_nu_e_e"> false </param>
     <param type="bool" name="HNL-3B_nu_mu_e"> false </param>
