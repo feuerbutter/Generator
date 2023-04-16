@@ -12,7 +12,7 @@
 void makeBox()
 {
     //--- define your favourite length units. Default is m
-    const std::string lunits = "m";
+    const std::string lunits = "mm";
     double uMult = 1.0;
     
     if( strcmp( lunits.c_str(), "m" ) == 0 ) {
@@ -35,7 +35,8 @@ void makeBox()
     TGeoMedium *Al = new TGeoMedium("Root Material",2, matAl);
 
     //--- make the top container volume
-    const double boxSideX = 2.5, boxSideY = 2.5, boxSideZ = 2.5; // m
+    const double boxSideX = 1740, boxSideY = 1960, boxSideZ = 3281; // m
+    // const double boxSideX = 2.5, boxSideY = 2.5, boxSideZ = 2.5; // m
     const double bigBoxSide = 2.0 * std::max( boxSideX, std::max( boxSideY, boxSideZ ) ); // m
     const double worldLen = 1.01 * bigBoxSide; // m
 
@@ -100,13 +101,14 @@ void makeBox()
 				      uMult * boxSideX, uMult * boxSideY, uMult * boxSideZ );
     box->SetLineColor(kRed);
     TGeoTranslation * tr0 = new TGeoTranslation( 0.0, 0.0, 0.0 );
+    // TGeoTranslation * tr0 = new TGeoTranslation( 0.0, 50.0, 915.5 );
     TGeoRotation * rot0 = new TGeoRotation( "rot0", thx, phx, thy, phy, thz, phz );
 
     //--- add directly to top volume
     topvol->AddNode( box, 1, rot0 );
 
     //--- export this to a file
-    geom->Export("./box.root");
+    geom->Export("./TPC_whole_centreO.root");
 
     //--- close the geometry
     geom->CloseGeometry();
