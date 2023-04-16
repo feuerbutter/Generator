@@ -52,7 +52,7 @@ April 11th, 2022
     <!-- Euler angles, extrinsic x-z-x = 1-2-3, RM * BEAM = USER, RM = Rx(1) * Rz(2) * Rx(3). -->
     <!-- Describes rotation of BEAM wrt NEAR frame -->
     <!-- <param type="vec-double" name="Near2User_T" delim=";"> 0.0 ; -60.0 ; 1000.0 </param> m -->
-    <param type="vec-double" name="Near2User_T" delim=";"> -3.222 ; -8.146 ; 280.1 </param> <!-- m -->
+    <param type="vec-double" name="Near2User_T" delim=";"> -3.222 ; -9.41 ; 280.1 </param> <!-- m -->
     <!-- USER origin in NEAR coordinates -->
     <param type="vec-double" name="Near2User_R" delim=";"> 0.0 ; 0.0 ; 0.0 </param>
     <!-- Euler angles, extrinsic x-z-x -->
