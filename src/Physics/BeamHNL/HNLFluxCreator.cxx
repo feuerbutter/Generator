@@ -324,7 +324,7 @@ FluxContainer FluxCreator::MakeTupleFluxEntry( int iEntry, std::string finpath )
   // assert production as K+- --> N + mu+-
   assert( fU4l2s.at(1) > 0.0 );
   if( !utils::hnl::IsProdKinematicallyAllowed( kHNLProdKaon2Muon ) ){
-      this->FillNonsense( iEntry, &gnmf ); return gnmf;
+      this->FillNonsense( iEntry, gnmf ); return gnmf;
   }
   prodChan = kHNLProdKaon2Muon;
   
