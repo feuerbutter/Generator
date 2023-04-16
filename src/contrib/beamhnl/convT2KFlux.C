@@ -23,8 +23,8 @@ void convT2KFlux(std::string T2Kflux_filename){
 
     //------------variables-------------
 
-    // int n_conv = 20000; // # of entries to convert
-    int n_conv = n_evt; // # of entries to convert
+    int n_conv = 1000; // # of entries to convert
+    // int n_conv = n_evt; // # of entries to convert
     double pots = (double) n_conv;
 
     int job    = 1;
@@ -46,8 +46,8 @@ void convT2KFlux(std::string T2Kflux_filename){
 
     //-- open the output ROOT file
     // TString fout_name = Form("genie_lt160momNmu1pi/genie_lt160momNmu1pi_%d.root",file_ind);
-    TString fout_name = "/home/weijunli/Apps/GENIE/flux/conv_test/dk2nu_t2k_konly.root";
-    // TString fout_name = "dk2nu_t2k_konly_full.root";
+    TString fout_name = "/home/weijunli/Apps/GENIE/flux/conv_cm/dk2nu_t2k_konly.root";
+    // TString fout_name = "test.root";
     TFile* fout = new TFile(fout_name,"RECREATE");
 
     //-- create the output tree
@@ -76,10 +76,10 @@ void convT2KFlux(std::string T2Kflux_filename){
 
       if (! (mode==12)) continue;
 	    if( edx % 100 == 0 ) std::cout << "=======Checking event " << edx << "====================" << std::endl;
-      decay_vx = (double) xpi[0];
-      decay_vy = (double) xpi[1];
-      decay_vz = (double) xpi[2];
-      //printf("Decay vertex at : (%6.3f,%6.3f,%6.3f) [cm]\n",decay_vx,decay_vy,decay_vz);
+      decay_vx = (double) xpi[0]/10.;
+      decay_vy = (double) xpi[1]/10.;
+      decay_vz = (double) xpi[2]/10.;
+      printf("Decay vertex at : (%6.3f,%6.3f,%6.3f) [cm]\n",decay_vx,decay_vy,decay_vz);
 
       decay_pdpx = (double) ppi * npi[0];
       decay_pdpy = (double) ppi * npi[1];
