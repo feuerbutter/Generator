@@ -25,7 +25,7 @@ April 11th, 2022
 
   <param_set name="ParameterSpace">
     <param type="double" name="HNL-Mass"> 1.0e-6 </param> <!-- GeV -->
-    <param type="vec-double" name="HNL-LeptonMixing" delim=";"> 1.0e-7 ; 1.0e-7 ; 0.0 </param>
+    <param type="vec-double" name="HNL-LeptonMixing" delim=";"> 1.0 ; 1.0 ; 0.0 </param>
     <param type="bool" name="HNL-Majorana"> false </param>
     <!-- <param type="int" name="HNL-Type"> 2 </param> --> <!-- 0 = pure-N, 1 = pure-Nbar, 2 = mix -->
     
@@ -48,15 +48,16 @@ April 11th, 2022
   </param_set>
 
   <param_set name="CoordinateXForm">
-    <param type="vec-double" name="Near2Beam_R" delim=";"> 0.0 ; 0.0 ; -0.05830 </param> <!-- rad -->
+    <param type="vec-double" name="Near2Beam_R" delim=";"> 0.0 ; 0.0 ; -0.06344 </param> <!-- rad -->
     <!-- Euler angles, extrinsic x-z-x = 1-2-3, RM * BEAM = USER, RM = Rx(1) * Rz(2) * Rx(3). -->
     <!-- Describes rotation of BEAM wrt NEAR frame -->
-    <param type="vec-double" name="Near2User_T" delim=";"> 0.0 ; -60.0 ; 1000.0 </param> <!-- m -->
+    <!-- <param type="vec-double" name="Near2User_T" delim=";"> 0.0 ; -60.0 ; 1000.0 </param> m -->
+    <param type="vec-double" name="Near2User_T" delim=";"> -3.222 ; -8.146 ; 280.1 </param> <!-- m -->
     <!-- USER origin in NEAR coordinates -->
     <param type="vec-double" name="Near2User_R" delim=";"> 0.0 ; 0.0 ; 0.0 </param>
     <!-- Euler angles, extrinsic x-z-x -->
     <!-- Describes rotation of USER wrt NEAR frame -->
-    <param type="vec-double" name="DetCentre_User" delim=";"> 0.0 ; 0.0 ; 0.0 </param> <!-- m -->
+    <param type="vec-double" name="DetCentre_User" delim=";"> 0.0 ; 0.05 ; 0.9155 </param> <!-- m -->
     <!-- Position of detector centre in USER frame, in case it is not at USER origin -->
   </param_set>
 
@@ -85,7 +86,7 @@ April 11th, 2022
     <param type="bool" name="RerollPoints"> true </param>
     <param type="double" name="CollectionRadius"> 1.0 </param> <!-- this would be fLx,y,z in MakeBBox() -->
     <param type="bool" name="IsParentOnAxis"> false </param>
-    <param type="bool" name="InputFluxesInBEAM"> true </param>
+    <param type="bool" name="InputFluxesInBEAM"> false </param>
     <param type="bool" name="IncludePolarisation"> true </param>
     <param type="bool" name="FixPolarisationDirection"> false </param>
     <param type="vec-double" name="HNL-PolDir" delim=";"> 0.0 ; 0.0 ; 1.0 </param> 
