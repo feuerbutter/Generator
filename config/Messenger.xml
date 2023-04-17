@@ -241,8 +241,8 @@
   <priority msgstream="gcalchedisdiffxsec">  INFO   </priority>
   <priority msgstream="gmkhedissf">          INFO   </priority>
   <priority msgstream="gmkphotonsf">         INFO   </priority>
-  <priority msgstream="gevgen_hnl">          FATAL </priority>
-  <priority msgstream="gevgen_pghnl">        FATAL </priority>
+  <priority msgstream="gevgen_hnl">          DEBUG </priority>
+  <priority msgstream="gevgen_pghnl">        DEBUG </priority>
   <priority msgstream="gevald_hnl">          DEBUG </priority>
 
 </messenger_config>

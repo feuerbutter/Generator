@@ -1047,7 +1047,8 @@ int TestGeom(void)
       << "Set momentum for this trajectory = " << utils::print::Vec3AsString( &momentum )
       << " [GeV/c]";
 
-    TLorentzVector tmpVtx( use_ox, use_oy, use_oz, 0.0);
+    // TLorentzVector tmpVtx( use_ox, use_oy, use_oz, 0.0);
+    TLorentzVector tmpVtx( use_start[0], use_start[1], use_start[2], 0.0);
     event->SetVertex( tmpVtx );
     TLorentzVector tmpMom = *p4HNL;
     GHepParticle ptHNL( genie::kPdgHNL, kIStInitialState, -1, -1, -1, -1, tmpMom, tmpVtx );

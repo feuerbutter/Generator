@@ -433,10 +433,21 @@ void VertexGenerator::SetStartingParameters( GHepRecord * event_rec ) const
   TVector3 xHNL_near = x4HNL->Vect();
   TVector3 xHNL_user = this->ApplyUserRotation( xHNL_near, detori, fDetRotation, false ); // tgt-hall --> user
   TLorentzVector * x4HNL_user = new TLorentzVector();
-  x4HNL_user->SetXYZT( xHNL_user.X() - (fCx + fDetTranslation.at(0)) * units::m / units::cm, 
-		       xHNL_user.Y() - (fCy + fDetTranslation.at(1)) * units::m / units::cm,
-		       xHNL_user.Z() - (fCz + fDetTranslation.at(2)) * units::m / units::cm,
-		       x4HNL->T() ); // USER, cm ns
+  // x4HNL_user->SetXYZT( xHNL_user.X() - (fCx + fDetTranslation.at(0)) * units::m / units::cm, 
+		      //  xHNL_user.Y() - (fCy + fDetTranslation.at(1)) * units::m / units::cm,
+		      //  xHNL_user.Z() - (fCz + fDetTranslation.at(2)) * units::m / units::cm,
+		      //  x4HNL->T() ); // USER, cm ns
+
+  if( isUsingDk2nu ){
+    x4HNL_user->SetXYZT( xHNL_user.X() - (fCx + fDetTranslation.at(0)) * units::m / units::cm,
+                          xHNL_user.Y() - (fCy + fDetTranslation.at(1)) * units::m / units::cm,
+                          xHNL_user.Z() - (fCz + fDetTranslation.at(2)) * units::m / units::cm, 0.0 );
+  } else {
+    x4HNL_user->SetXYZT( xHNL_user.X() - fDetTranslation.at(0) * units::m / units::mm,
+                          xHNL_user.Y() - fDetTranslation.at(1) * units::m / units::mm,
+                          xHNL_user.Z() - fDetTranslation.at(2) * units::m / units::mm, 0.0 );
+  } // gevald passes origin in USER coords so no correction for NEAR --> USER
+
 
   TVector3 startPoint( xMult * x4HNL_user->X(), xMult * x4HNL_user->Y(), xMult * x4HNL_user->Z() ); // USER mm
   double mtomm = units::m / units::mm;
@@ -491,14 +502,14 @@ bool VertexGenerator::VolumeEntryAndExitPoints( TVector3 & startPoint, TVector3 
   gGeoManager->SetCurrentPoint( firstXROOT, firstYROOT, firstZROOT );
   gGeoManager->SetCurrentDirection( px, py, pz );
 
-  /*
+  // /*
   LOG( "HNL", pINFO )
     << "\nCurrent point     is: ( " << firstX << ", " << firstY << ", " << firstZ << " ) [" << lunitString.c_str() << "]"
     << "\nFrom start point    : ( " << sx << ", " << sy << ", " << sz << " ) [" << lunitString.c_str() << "]"
     << "\nIn ROOT, current is : ( " << firstXROOT << ", " << firstYROOT << ", " << firstZROOT << " ) [cm]"
     << "\nIn ROOT, start is   : ( " << fSxROOT << ", " << fSyROOT << ", " << fSzROOT << " ) [cm]"
     << "\nCurrent direction is: ( " << px << ", " << py << ", " << pz << " ) [GeV/GeV]";
-  */
+  // */
 
   std::string pathString = this->CheckGeomPoint( firstXROOT, firstYROOT, firstZROOT );
 
@@ -545,11 +556,11 @@ bool VertexGenerator::VolumeEntryAndExitPoints( TVector3 & startPoint, TVector3 
 			  entryPoint_near.Y() + (fCy + fDetTranslation.at(1)),
 			  entryPoint_near.Z() + (fCz + fDetTranslation.at(2)) );
 
-  /*
+  // /*
   LOG( "HNL", pDEBUG )
     << "\nEntry point found at ( " << fEx << ", " << fEy << ", " << fEz << " ) [" << lunitString.c_str() << "]"
     << "\nIn ROOT, entry at    ( " << fExROOT << ", " << fEyROOT << ", " << fEzROOT << " ) [cm]"; 
-  */
+  // */
 
   // now propagate until we exit again
   
@@ -612,12 +623,12 @@ bool VertexGenerator::VolumeEntryAndExitPoints( TVector3 & startPoint, TVector3 
 			 exitPoint_near.Y() + (fCy + fDetTranslation.at(1)),
 			 exitPoint_near.Z() + (fCz + fDetTranslation.at(2)) );
 
-  /*
+  // /*
   LOG( "HNL", pINFO )
     << "\nExit point found at ( " << fXx << ", " << fXy << ", " << fXz << " ) ["
     << lunitString.c_str() << "]"
     << "\nIn ROOT, exit at    ( " << fXxROOT << ", " << fXyROOT << ", " << fXzROOT << " ) [cm]"; 
-  */
+  // */
 
   return true;
   
