@@ -535,6 +535,9 @@ FluxContainer FluxCreator::MakeTupleFluxEntry( int iEntry, std::string finpath )
   fSMECM = decay_necm;
   fZm = zm; fZp = zp;
   double accCorr = this->CalculateAcceptanceCorrection( p4par, p4HNL_rest, decay_necm, zm, zp );
+
+  if(fKillAccCorr) accCorr = 1.0;
+
   //if( !fDoingOldFluxCalc ){
   if( fRerollPoints ){
     // if accCorr == 0 then we must ~bail and find the next event.~ 
@@ -2072,6 +2075,7 @@ void FluxCreator::LoadConfig(void)
   this->GetParamVect( "HNL-PolDir", fFixedPolarisation );
 
   this->GetParam( "IsParentOnAxis", isParentOnAxis );
+  this->GetParam( "RemoveAcceptanceCorrection", fKillAccCorr );
 
   fCx = fB2UTranslation.at(0);
   fCy = fB2UTranslation.at(1);
