@@ -35,7 +35,7 @@ void makeBox()
     TGeoMedium *Al = new TGeoMedium("Root Material",2, matAl);
 
     //--- make the top container volume
-    const double boxSideX = 1740, boxSideY = 1960, boxSideZ = 3281; // m
+    const double boxSideX = 1740/2, boxSideY = 1960/2, boxSideZ = 3281/2; // m
     // const double boxSideX = 2.5, boxSideY = 2.5, boxSideZ = 2.5; // m
     const double bigBoxSide = 2.0 * std::max( boxSideX, std::max( boxSideY, boxSideZ ) ); // m
     const double worldLen = 1.01 * bigBoxSide; // m
@@ -108,7 +108,7 @@ void makeBox()
     topvol->AddNode( box, 1, rot0 );
 
     //--- export this to a file
-    geom->Export("./TPC_whole_centreO.root");
+    geom->Export("./TPC_whole_centreO_halfbox.root");
 
     //--- close the geometry
     geom->CloseGeometry();
