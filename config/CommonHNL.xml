@@ -24,7 +24,7 @@ April 11th, 2022
 <common_HNL_list>
 
   <param_set name="ParameterSpace">
-    <param type="double" name="HNL-Mass"> 0.250 </param> <!-- GeV -->
+    <param type="double" name="HNL-Mass"> 0.35 </param> <!-- GeV -->
     <param type="vec-double" name="HNL-LeptonMixing" delim=";"> 1e-7 ; 1e-7 ; 0.0 </param>
     <param type="bool" name="HNL-Majorana"> false </param>
     <!-- <param type="int" name="HNL-Type"> 2 </param> --> <!-- 0 = pure-N, 1 = pure-Nbar, 2 = mix -->
@@ -52,12 +52,14 @@ April 11th, 2022
     <!-- Euler angles, extrinsic x-z-x = 1-2-3, RM * BEAM = USER, RM = Rx(1) * Rz(2) * Rx(3). -->
     <!-- Describes rotation of BEAM wrt NEAR frame -->
     <!-- <param type="vec-double" name="Near2User_T" delim=";"> 0.0 ; -60.0 ; 1000.0 </param> m -->
-    <param type="vec-double" name="Near2User_T" delim=";"> -3.222 ; -8.146 ; 280.1 </param> <!-- m -->
+    <param type="vec-double" name="Near2User_T" delim=";"> -3.222 ; -8.146 ; 278.1 </param> <!-- m -->
     <!-- USER origin in NEAR coordinates -->
     <param type="vec-double" name="Near2User_R" delim=";"> 0.0 ; 0.0 ; 0.0 </param>
     <!-- Euler angles, extrinsic x-z-x -->
     <!-- Describes rotation of USER wrt NEAR frame -->
-    <param type="vec-double" name="DetCentre_User" delim=";"> 0.0 ; 0.05 ; 0.9155 </param> <!-- m -->
+    <param type="vec-double" name="DetCentre_User" delim=";"> 0.0 ; 0.029985 ; 0.05606 </param> <!--m-->
+    <!-- NDUP -->
+    <!-- <param type="vec-double" name="DetCentre_User" delim=";"> 0.0 ;0.05; 0.9155; 0.029985 ; -1.94394 </param> m -->
     <!-- Position of detector centre in USER frame, in case it is not at USER origin -->
   </param_set>
 

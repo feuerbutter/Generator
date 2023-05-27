@@ -222,7 +222,7 @@
   <priority msgstream="HEDISKinematics">       WARN    </priority>
   <priority msgstream="HEDISStrucFunc">        WARN    </priority>
   <priority msgstream="LeptoHad">              ERROR   </priority>
-  <priority msgstream="HNL">                   DEBUG </priority> 
+  <priority msgstream="HNL">                   FATAL </priority> 
 
   <priority msgstream="gevgen">              WARN </priority>
   <priority msgstream="gevgen_dm">           NOTICE </priority>
@@ -242,7 +242,7 @@
   <priority msgstream="gmkhedissf">          INFO   </priority>
   <priority msgstream="gmkphotonsf">         INFO   </priority>
   <priority msgstream="gevgen_hnl">          DEBUG </priority>
-  <priority msgstream="gevgen_pghnl">        DEBUG </priority>
-  <priority msgstream="gevald_hnl">          DEBUG </priority>
+  <priority msgstream="gevgen_pghnl">        FATAL </priority>
+  <priority msgstream="gevald_hnl">          FATAL </priority>
 
 </messenger_config>
