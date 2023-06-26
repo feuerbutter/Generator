@@ -34,6 +34,7 @@
 #include <cassert>
 #include <iomanip> // for momentum balance stream
 #include <map>
+#include <list>
 #include <sstream>
 
 // -- ROOT includes
@@ -111,7 +112,7 @@ namespace genie{
       // set the input path for a flux
       void SetInputFluxPath( std::string finpath ) const;
       // set path to geometry file
-      void SetGeomFile( string geomfile ) const;
+      void SetGeomFile( string geomfile, string topVolume ) const;
       // get N(flux input entries)
       int GetNFluxEntries() const;
       // set first entry for read-in from chain
@@ -142,6 +143,7 @@ namespace genie{
 
       // init
       void OpenFluxInput( std::string finpath ) const;
+      std::list<TString> RecurseOverDir( std::string finpath ) const;
       void InitialiseTree() const;
       void InitialiseMeta() const;
 
@@ -197,6 +199,7 @@ namespace genie{
       mutable bool fKillAccCorr = false;
       mutable TGeoVolume * fTopVol = 0;
       mutable string fGeomFile = "";
+      mutable string fTopVolume = "";
       mutable bool fIsUsingRootGeom = false;
 
       mutable TChain * ctree = 0, * cmeta = 0;

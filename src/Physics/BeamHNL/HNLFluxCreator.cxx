@@ -51,8 +51,10 @@ void FluxCreator::ProcessEventRecord(GHepRecord * evrec) const
     
     gGeoManager = TGeoManager::Import( fGeomFile.c_str() );
     
-    TGeoVolume * top_volume = gGeoManager->GetTopVolume();
+    LOG( "HNL", pDEBUG ) << "Using volume \"" << fTopVolume << "\" as top volume...";
+    TGeoVolume * top_volume = gGeoManager->GetVolume( fTopVolume.c_str() );
     assert( top_volume );
+    gGeoManager->SetTopVolume(top_volume);
     TGeoShape * ts = top_volume->GetShape();
     TGeoBBox * box = (TGeoBBox *) ts;
     
@@ -759,7 +761,6 @@ void FluxCreator::OpenFluxInput( std::string finpath ) const
   LOG( "HNL", pDEBUG )
     << "Getting flux input from finpath = " << finpath.c_str();
 
-  // recurse over files in this directory and add to chain
   if(!ctree){
     ctree = new TChain( "dkTree" );
     cmeta = new TChain( "dkMeta" );
@@ -767,23 +768,24 @@ void FluxCreator::OpenFluxInput( std::string finpath ) const
 
   if( fPathLoaded ) return;
 
-  TSystemDirectory dir( finpath.c_str(), finpath.c_str() );
-  TList * files = dir.GetListOfFiles(); int nFiles = 0;
-  assert( files );
-  files->Sort();
+  // recurse over files in this directory and add to chain
 
-  TSystemFile * file;
-  TString fname;
-  TIter next(files);
-  
-  while( (file=( TSystemFile * ) next()) && !fPathLoaded ){
-    fname = file->GetName();
-    if( !file->IsDirectory() ){
-      TString fullpath = TString( finpath.c_str() ) + fname;
-      nFiles++;
-      ctree->Add( fullpath );
-      cmeta->Add( fullpath );
-    }
+  std::list<TString> files = this->RecurseOverDir( finpath );
+  assert( files.size() > 0 );
+  int nFiles = 0;
+
+  std::list<TString>::iterator itFiles = files.begin();  
+  while( itFiles != files.end() && !fPathLoaded ){
+    /*
+    TSystemFile * file = (*itFiles);
+    TString fname = file->GetName();
+    TString fullpath = TString( finpath.c_str() ) + fname;
+    */
+    TString fullpath = (*itFiles);
+    nFiles++;
+    ctree->Add( fullpath );
+    cmeta->Add( fullpath );
+    ++itFiles;
   }
 
   if( !ctree ){ LOG( "HNL", pFATAL ) << "Could not open flux tree!"; }
@@ -800,9 +802,74 @@ void FluxCreator::OpenFluxInput( std::string finpath ) const
     << "\n got from " << nFiles << " files";
 
   fPathLoaded = true;
+}
+//----------------------------------------------------------------------------
+std::list<TString> FluxCreator::RecurseOverDir( std::string finpath ) const
+{
+  // grabs all the files (that are not directories) from the current dir recursively.
+  
+  LOG( "HNL", pDEBUG ) << "Entering HNLFluxCreator::RecurseOverDir()...";
+  TSystemDirectory topDir( finpath.c_str(), finpath.c_str() );
+  std::list<TString> files; int nFiles = 0;
+  std::list<TString> dirNames;
+  std::list<TObject *> dirs; // this will take all directories that have not been opened yet.
+  dirs.emplace_front( &topDir );
+  dirNames.emplace_front( topDir.GetName() );
 
-  delete file;
-  delete files;
+  LOG( "HNL", pDEBUG )
+    << "Starting to add files to input. Current size is " << dirs.size();
+  
+  while( dirs.size() > 0 ){ // there is still stuff we haven't looked at.
+    int nNow = dirs.size();
+    LOG( "HNL", pDEBUG ) 
+      << "Scanning directory " << dirNames.front() << " with " << nNow << " elements...";
+    
+    // go to first object and get the structure next level down
+    TSystemDirectory * currDir = dynamic_cast<TSystemDirectory *>( dirs.front() );
+    TString dirPath = dirNames.front();
+    
+    // first, strip the first two elements . and ..
+    TList * rootElements = currDir->GetListOfFiles(); rootElements->Sort();
+    LOG( "HNL", pDEBUG )
+      << "Pre-sanitisation, dir structure is...";
+    rootElements->ls();
+    rootElements->Remove( rootElements->First() ); // .
+    rootElements->Remove( rootElements->First() ); // ..
+
+    if( rootElements->GetEntries() == 0 ) continue;
+    else {
+      LOG( "HNL", pDEBUG )
+	<< "Post-sanitisation, dir structure is: ";
+      rootElements->ls();
+    }
+
+    TSystemFile * elem;
+    TIter next(rootElements);
+    TObject * sFile;
+    TIter sNext( rootElements );
+
+    // put all the files in the list, and all the directories in the dirs list.
+    // for names, add the full path (== dirPath + "/" + name of next dir)
+    // TSystemDirectory inherits from TSystemFile
+    while( sFile = sNext() ){
+      TString fullPath = dirPath + "/" + sFile->GetName() ;
+      if( dynamic_cast< TSystemDirectory * >( sFile ) ) {
+	dirs.emplace_back( sFile );
+	dirNames.emplace_back( fullPath );
+	LOG( "HNL", pDEBUG ) 
+	  << "Adding directory " << fullPath.Data() << " to linked list...";
+      } else
+	files.emplace_back( fullPath );
+    }
+
+    dirs.pop_front();
+    dirNames.pop_front();
+  } // while dirs.size() > 0
+  
+  nFiles = files.size();
+  LOG( "HNL", pDEBUG )
+    << "Found " << nFiles << " files in total.";
+  return files;
 }
 //----------------------------------------------------------------------------
 void FluxCreator::InitialiseTree() const
@@ -1321,12 +1388,12 @@ TVector3 FluxCreator::PointToRandomPointInBBox( ) const
     //double ux = rx - ox, uy = ry - oy, uz = rz - oz;
 
     LOG( "HNL", pDEBUG )
-      << "\nChecking point " << utils::print::Vec3AsString(&checkPoint) << " [m, user]";
+      << "\nChecking point " << utils::print::Vec3AsString(&checkPoint) << " [cm, user]";
 
     // check if the point is inside the geometry, otherwise do it again
     std::string pathString = this->CheckGeomPoint( ux, uy, uz ); int iNode = 1; // 1 past beginning
     int iBad = 0;
-    while( pathString.find( "/", iNode ) == string::npos && iBad < 10 ){
+    while( pathString.find( fTopVolume.c_str(), iNode ) == string::npos && iBad < 10 ){
       rx = (rnd->RndGen()).Uniform( -fLx/2.0, fLx/2.0 ); ux = (rx + fDetOffset.at(0)) * units::m / units::cm;
       ry = (rnd->RndGen()).Uniform( -fLy/2.0, fLy/2.0 ); uy = (ry + fDetOffset.at(1)) * units::m / units::cm;
       rz = (rnd->RndGen()).Uniform( -fLz/2.0, fLz/2.0 ); uz = (rz + fDetOffset.at(2)) * units::m / units::cm;
@@ -1334,7 +1401,8 @@ TVector3 FluxCreator::PointToRandomPointInBBox( ) const
       pathString = this->CheckGeomPoint( ux, uy, uz ); iNode = 1;
       iBad++;
     }
-    assert( pathString.find( "/", iNode ) != string::npos );
+    LOG( "HNL", pDEBUG ) << "Here is the pathString: " << pathString;
+    assert( pathString.find( fTopVolume.c_str(), iNode ) != string::npos );
   }
 
   // turn u back into [m] from [cm]
@@ -1570,7 +1638,7 @@ void FluxCreator::GetAngDeviation( TLorentzVector p4par, TVector3 detO, double &
 
   // first check that detStartPoint is not already in the detector! If it is, we should flag this now.
   std::string detPathString = this->CheckGeomPoint( detStartPoint.X(), detStartPoint.Y(), detStartPoint.Z() ); int iDNode = 1; // 1 past beginning
-  bool startsInsideDet = ( detPathString.find("/", iDNode) != string::npos );
+  bool startsInsideDet = ( detPathString.find(fTopVolume.c_str(), iDNode) != string::npos );
 
   TLorentzVector detPpar_4v( detPpar.X(), detPpar.Y(), detPpar.Z(), p4par.E() );
   
@@ -1619,7 +1687,7 @@ void FluxCreator::GetAngDeviation( TLorentzVector p4par, TVector3 detO, double &
 				  currz + largeStep * curdz );
 
     /* // this is the very correct, very slow way of doing it
-    while( detPathString.find("/", iDNode) != string::npos ){
+    while( detPathString.find(fTopVolume.c_str(), iDNode) != string::npos ){
       gGeoManager->SetCurrentPoint( (gGeoManager->GetCurrentPoint())[0] + (gGeoManager->GetCurrentDirection())[0] * sStepSize,
 				    (gGeoManager->GetCurrentPoint())[1] + (gGeoManager->GetCurrentDirection())[1] * sStepSize,
 				    (gGeoManager->GetCurrentPoint())[2] + (gGeoManager->GetCurrentDirection())[2] * sStepSize );
@@ -1660,7 +1728,7 @@ void FluxCreator::GetAngDeviation( TLorentzVector p4par, TVector3 detO, double &
 				  currz + largeStep * curdz );
 
     /* // slow but correct
-    while( detPathString.find("/", iDNode) == string::npos ){
+    while( detPathString.find(fTopVolume.c_str(), iDNode) == string::npos ){
       gGeoManager->SetCurrentPoint( (gGeoManager->GetCurrentPoint())[0] + (gGeoManager->GetCurrentDirection())[0] * sStepSize,
 				    (gGeoManager->GetCurrentPoint())[1] + (gGeoManager->GetCurrentDirection())[1] * sStepSize,
 				    (gGeoManager->GetCurrentPoint())[2] + (gGeoManager->GetCurrentDirection())[2] * sStepSize );
@@ -1692,7 +1760,7 @@ void FluxCreator::GetAngDeviation( TLorentzVector p4par, TVector3 detO, double &
     gGeoManager->SetCurrentPoint( -currx, -curry, -currz );
 
     /* // slow but correct
-    while( detPathString.find("/", iDNode) != string::npos ){
+    while( detPathString.find(fTopVolume.c_str(), iDNode) != string::npos ){
       gGeoManager->SetCurrentPoint( (gGeoManager->GetCurrentPoint())[0] + (gGeoManager->GetCurrentDirection())[0] * sStepSize,
 				    (gGeoManager->GetCurrentPoint())[1] + (gGeoManager->GetCurrentDirection())[1] * sStepSize,
 				    (gGeoManager->GetCurrentPoint())[2] + (gGeoManager->GetCurrentDirection())[2] * sStepSize );
@@ -2118,10 +2186,11 @@ void FluxCreator::LoadConfig(void)
   fIsConfigLoaded = true;
 }
 //____________________________________________________________________________
-void FluxCreator::SetGeomFile( string geomfile ) const
+void FluxCreator::SetGeomFile( string geomfile, string topVolume ) const
 {
   LOG( "HNL", pDEBUG ) << "Setting geometry file to " << geomfile;
   fGeomFile = geomfile;
+  fTopVolume = topVolume;
 }
 //____________________________________________________________________________
 void FluxCreator::SetFirstFluxEntry( int iFirst ) const
