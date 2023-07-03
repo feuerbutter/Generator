@@ -52,8 +52,22 @@ void FluxCreator::ProcessEventRecord(GHepRecord * evrec) const
     gGeoManager = TGeoManager::Import( fGeomFile.c_str() );
     
     LOG( "HNL", pDEBUG ) << "Using volume \"" << fTopVolume << "\" as top volume...";
+    // first, go get the top volume of the entire geom so we can pick up translation components
+    TGeoVolume * main_volume = gGeoManager->GetTopVolume();
     TGeoVolume * top_volume = gGeoManager->GetVolume( fTopVolume.c_str() );
     assert( top_volume );
+    // now get the translation of the top volume
+    if( main_volume != top_volume ) {
+      main_volume->FindMatrixOfDaughterVolume(top_volume);
+      TGeoHMatrix * hmat = gGeoManager->GetHMatrix();
+      Double_t * tran = hmat->GetTranslation();
+      fTx = tran[0] * units::cm / units::m;
+      fTy = tran[1] * units::cm / units::m;
+      fTz = tran[2] * units::cm / units::m;
+      LOG( "HNL", pDEBUG )
+	<< "Got translation of volume with name " << top_volume->GetName() << " which is ( " 
+	<< fTx << ", " << fTy << ", " << fTz << " ) [m]";
+    }
     gGeoManager->SetTopVolume(top_volume);
     TGeoShape * ts = top_volume->GetShape();
     TGeoBBox * box = (TGeoBBox *) ts;
@@ -311,11 +325,13 @@ FluxContainer FluxCreator::MakeTupleFluxEntry( int iEntry, std::string finpath )
   std::map< HNLProd_t, double >::iterator pdit = dynamicScores.begin();
   while( score >= s1 && pdit != dynamicScores.end() ){
     s1 += (*pdit).second;
+    /*
     if( parentMass > 0.495 ){
       LOG( "HNL", pDEBUG )
 	<< "(*pdit).first = " << utils::hnl::ProdAsString( (*pdit).first )
 	<< " : (*pdit).second = " << (*pdit).second;
     }
+    */
     if( score >= s1 ){
       imap++; pdit++;
     }
@@ -808,7 +824,6 @@ std::list<TString> FluxCreator::RecurseOverDir( std::string finpath ) const
 {
   // grabs all the files (that are not directories) from the current dir recursively.
   
-  LOG( "HNL", pDEBUG ) << "Entering HNLFluxCreator::RecurseOverDir()...";
   TSystemDirectory topDir( finpath.c_str(), finpath.c_str() );
   std::list<TString> files; int nFiles = 0;
   std::list<TString> dirNames;
@@ -830,18 +845,12 @@ std::list<TString> FluxCreator::RecurseOverDir( std::string finpath ) const
     
     // first, strip the first two elements . and ..
     TList * rootElements = currDir->GetListOfFiles(); rootElements->Sort();
-    LOG( "HNL", pDEBUG )
-      << "Pre-sanitisation, dir structure is...";
     rootElements->ls();
     rootElements->Remove( rootElements->First() ); // .
     rootElements->Remove( rootElements->First() ); // ..
 
     if( rootElements->GetEntries() == 0 ) continue;
-    else {
-      LOG( "HNL", pDEBUG )
-	<< "Post-sanitisation, dir structure is: ";
-      rootElements->ls();
-    }
+    else rootElements->ls();
 
     TSystemFile * elem;
     TIter next(rootElements);
@@ -1370,16 +1379,41 @@ TVector3 FluxCreator::PointToRandomPointInBBox( ) const
   /*
   double ox = fCx + fDetOffset.at(0), oy = fCy + fDetOffset.at(1), oz = fCz + fDetOffset.at(2); // NEAR, m
   */
-  double ox = fCx, oy = fCy, oz = fCz; // NEAR, m
+  double ox = fCx, oy = fCy, oz = fCz; // NEAR, m -- this is for ROOT file origin system
+
+  // ensure we always roll inside the BBox when taking detector offset + translation into account
+  double xBack = fDetOffset.at(0)-fLx/2.0; double xFront = fDetOffset.at(0)+fLx/2.0;
+  double yBack = fDetOffset.at(1)-fLy/2.0; double yFront = fDetOffset.at(1)+fLy/2.0;
+  double zBack = fDetOffset.at(2)-fLz/2.0; double zFront = fDetOffset.at(2)+fLz/2.0;
+
+  if( xBack < -fLxR/2.0 ) xBack  = -fLxR/2.0;
+  if( xFront > fLxR/2.0 ) xFront = fLxR/2.0;
+  if( yBack < -fLyR/2.0 ) yBack  = -fLyR/2.0;
+  if( yFront > fLyR/2.0 ) yFront = fLyR/2.0;
+  if( zBack < -fLzR/2.0 ) zBack  = -fLzR/2.0;
+  if( zFront > fLzR/2.0 ) zFront = fLzR/2.0;
+
+  /*
+  double xBack = -fLx/2.0, xFront = fLx/2.0;
+  double yBack = -fLy/2.0, yFront = fLy/2.0;
+  double zBack = -fLz/2.0, zFront = fLz/2.0;
+  */
   
+  /*
   double rx = (rnd->RndGen()).Uniform( -fLx/2.0, fLx/2.0 ), 
     ry = (rnd->RndGen()).Uniform( -fLy/2.0, fLy/2.0 ),
     rz = (rnd->RndGen()).Uniform( -fLz/2.0, fLz/2.0 ); // USER, m
+  */
+  double rx = (rnd->RndGen()).Uniform( xBack, xFront ),
+    ry = (rnd->RndGen()).Uniform( yBack, yFront ),
+    rz = (rnd->RndGen()).Uniform( zBack, zFront ); // USER, m
 
   double ux = (rx + fDetOffset.at(0)) * units::m / units::cm;
   double uy = (ry + fDetOffset.at(1)) * units::m / units::cm;
   double uz = (rz + fDetOffset.at(2)) * units::m / units::cm;
   TVector3 checkPoint( ux, uy, uz ); // USER, cm
+
+  std::string pathString = this->CheckGeomPoint( ux, uy, uz );
   
   TVector3 originPoint( -ox, -oy, -oz );
   TVector3 dumori( 0.0, 0.0, 0.0 );
@@ -1391,22 +1425,31 @@ TVector3 FluxCreator::PointToRandomPointInBBox( ) const
       << "\nChecking point " << utils::print::Vec3AsString(&checkPoint) << " [cm, user]";
 
     // check if the point is inside the geometry, otherwise do it again
-    std::string pathString = this->CheckGeomPoint( ux, uy, uz ); int iNode = 1; // 1 past beginning
+    pathString = this->CheckGeomPoint( ux, uy, uz ); int iNode = 1; // 1 past beginning
+    LOG( "HNL", pDEBUG ) << "Here is the pathString: " << pathString;
     int iBad = 0;
     while( pathString.find( fTopVolume.c_str(), iNode ) == string::npos && iBad < 10 ){
+      /*
       rx = (rnd->RndGen()).Uniform( -fLx/2.0, fLx/2.0 ); ux = (rx + fDetOffset.at(0)) * units::m / units::cm;
       ry = (rnd->RndGen()).Uniform( -fLy/2.0, fLy/2.0 ); uy = (ry + fDetOffset.at(1)) * units::m / units::cm;
       rz = (rnd->RndGen()).Uniform( -fLz/2.0, fLz/2.0 ); uz = (rz + fDetOffset.at(2)) * units::m / units::cm;
+      */
+      rx = (rnd->RndGen()).Uniform( xBack, xFront ); ux = (rx + fDetOffset.at(0)) * units::m / units::cm;
+      ry = (rnd->RndGen()).Uniform( yBack, yFront ); uy = (ry + fDetOffset.at(1)) * units::m / units::cm;
+      rz = (rnd->RndGen()).Uniform( zBack, zFront ); ux = (rz + fDetOffset.at(2)) * units::m / units::cm;
       checkPoint.SetXYZ( ux, uy, uz );
+      LOG( "HNL", pDEBUG )
+	<< "\nChecking point " << utils::print::Vec3AsString(&checkPoint) << " [cm, user]";
       pathString = this->CheckGeomPoint( ux, uy, uz ); iNode = 1;
+      LOG( "HNL", pDEBUG ) << "Here is the pathString: " << pathString;
       iBad++;
     }
-    LOG( "HNL", pDEBUG ) << "Here is the pathString: " << pathString;
     assert( pathString.find( fTopVolume.c_str(), iNode ) != string::npos );
   }
 
   // turn u back into [m] from [cm]
   ux *= units::cm / units::m; uy *= units::cm / units::m; uz *= units::cm / units::m;
+  ux += fTx; uy += fTy; uz += fTz; // add in volume translation
   // return the absolute point in space [NEAR, m] that we're pointing to!
   checkPoint.SetXYZ( ux, uy, uz );
   checkPoint = this->ApplyUserRotation( checkPoint, dumori, fDetRotation, true ); // det --> tgt-hall
@@ -1534,10 +1577,12 @@ void FluxCreator::GetAngDeviation( TLorentzVector p4par, TVector3 detO, double &
   const double yun[3] = { sz*cx2, cx1*cz*cx2 - sx1*sx2, -sx1*cz*cx2 - cx1*sx2 };
   const double zun[3] = { sz*sx2, cx1*cz*sx2 + sx1*cx2, -sx1*cz*sx2 + cx1*cx2 };
 
+  /*
   LOG("HNL", pDEBUG)
     << "\nxun = ( " << xun[0] << ", " << xun[1] << ", " << xun[2] << " )"
     << "\nyun = ( " << yun[0] << ", " << yun[1] << ", " << yun[2] << " )"
     << "\nzun = ( " << zun[0] << ", " << zun[1] << ", " << zun[2] << " )";
+  */
 
   /*
   TVector3 detO_cm( (detO.X() + fDetOffset.at(0)) * units::m / units::cm, 
@@ -1596,9 +1641,11 @@ void FluxCreator::GetAngDeviation( TLorentzVector p4par, TVector3 detO, double &
 				   aConst[1] + nMult * zConstMult * nConst[1],
 				   aConst[2] + nMult * zConstMult * nConst[2] }; // NEAR
 
+  /*
   LOG( "HNL", pDEBUG )
     << "\ndetO_cm = " << utils::print::Vec3AsString( &detO_cm )
     << "\npparUnit = " << utils::print::Vec3AsString( &pparUnit );
+  */
 
   const double startPoint[3] = { startPoint_m[0] * units::m / units::cm,
 				 startPoint_m[1] * units::m / units::cm,
@@ -2148,6 +2195,8 @@ void FluxCreator::LoadConfig(void)
   fCx = fB2UTranslation.at(0);
   fCy = fB2UTranslation.at(1);
   fCz = fB2UTranslation.at(2);
+
+  fTx = 0.0; fTy = 0.0; fTz = 0.0;
   
   fAx1 = fB2URotation.at(0);
   fAz  = fB2URotation.at(1);

@@ -55,11 +55,26 @@ void VertexGenerator::ProcessEventRecord(GHepRecord * event_rec) const
 
     fGeoManager = TGeoManager::Import(fGeomFile.c_str());
     
-    TGeoVolume * top_volume = fGeoManager->GetVolume(fTopVolume.c_str());
+    TGeoVolume * main_volume = fGeoManager->GetTopVolume();
+    TGeoVolume * top_volume = fGeoManager->GetVolume( fTopVolume.c_str() );
     assert( top_volume );
-    fGeoManager->SetTopVolume( top_volume );
+    // now get the translation of the top volume
+    if( main_volume != top_volume ) {
+      main_volume->FindMatrixOfDaughterVolume(top_volume);
+      TGeoHMatrix * hmat = fGeoManager->GetHMatrix();
+      Double_t * tran = hmat->GetTranslation();
+      fTx = tran[0] * units::cm / units::m;
+      fTy = tran[1] * units::cm / units::m;
+      fTz = tran[2] * units::cm / units::m;
+      LOG( "HNL", pDEBUG )
+	<< "Got translation of volume with name " << top_volume->GetName() << " which is ( " 
+	<< fTx << ", " << fTy << ", " << fTz << " ) [m]";
+    }
+    fGeoManager->SetTopVolume(top_volume);
     TGeoShape * ts = top_volume->GetShape();
     TGeoBBox * box = (TGeoBBox *) ts;
+    
+    this->ImportBoundingBox( box );
     
     this->ImportBoundingBox(box);
   }
@@ -97,7 +112,7 @@ void VertexGenerator::ProcessEventRecord(GHepRecord * event_rec) const
 
   double maxDx = exitPoint.X() - entryPoint.X();
   double maxDy = exitPoint.Y() - entryPoint.Y();
-  double maxDz = exitPoint.Z() - entryPoint.Z();
+  double maxDz = exitPoint.Z() - entryPoint.Z(); // mm
 
   double maxLength = std::sqrt( std::pow( maxDx , 2.0 ) +
 				std::pow( maxDy , 2.0 ) +
@@ -178,9 +193,6 @@ void VertexGenerator::ProcessEventRecord(GHepRecord * event_rec) const
 }
 //____________________________________________________________________________
 void VertexGenerator::EnforceUnits( std::string length_units, std::string angle_units, std::string time_units ) const{
-  
-  LOG( "HNL", pWARN )
-    << "Switching units to " << length_units.c_str() << " , " << angle_units.c_str() << " , " << time_units.c_str();
 
   double old_lunits = lunits;
   __attribute__((unused)) double old_aunits = aunits;
@@ -189,6 +201,11 @@ void VertexGenerator::EnforceUnits( std::string length_units, std::string angle_
   lunits = utils::units::UnitFromString( length_units ); lunitString = length_units;
   aunits = utils::units::UnitFromString( angle_units );
   tunits = utils::units::UnitFromString( time_units ); tunitString = time_units;
+
+  LOG( "HNL", pWARN )
+    << "Switching units:"
+    << "\nTo:   " << length_units.c_str() << " , " << angle_units.c_str() << " , " << time_units.c_str()
+    << "\nConversion factors: " << lunits/old_lunits << ", " << aunits / old_aunits << ", " << tunits / old_tunits;
 
   // convert to new units
   fSx /= lunits/old_lunits; fSy /= lunits/old_lunits; fSz /= lunits/old_lunits;
@@ -234,7 +251,7 @@ double VertexGenerator::CalcTravelLength( double betaMag, double CoMLifetime, do
 
   /*
   LOG( "HNL", pDEBUG )
-    << "betaMag, maxLength, CoMLifetime = " << betaMag << ", " << maxLength << ", " << CoMLifetime
+    << "\nbetaMag, maxLength, CoMLifetime = " << betaMag << ", " << maxLength << ", " << CoMLifetime
     << "\nbetaMag = " << betaMag << " ==> gamma = " << gamma
     << "\n==> maxLength [" << tunitString.c_str()
     << "] = " << maxRestTime << " (rest frame) = " << maxLabTime << " (lab frame)"
@@ -419,8 +436,10 @@ void VertexGenerator::SetStartingParameters( GHepRecord * event_rec ) const
   isParticleGun = (event_rec->Particle(0)->FirstMother() < -1); // hack
   isUsingRootGeom = true;
 
+  /*
   LOG( "HNL", pDEBUG ) << "isParticleGun = " << (int) isParticleGun
 		       << " with first mother " << event_rec->Particle(0)->FirstMother();
+  */
 
   //uMult = ( isUsingDk2nu ) ? units::m / units::mm : units::cm / units::mm;
   //uMult = units::m / units::mm;
@@ -503,7 +522,10 @@ bool VertexGenerator::VolumeEntryAndExitPoints( TVector3 & startPoint, TVector3 
   fSxROOT = fSx * lunits / units::cm; fSyROOT = fSy * lunits / units::cm; fSzROOT = fSz * lunits / units::cm;
   fPx = px; fPy = py; fPz = pz;
 
-  double firstXROOT = fSxROOT, firstYROOT = fSyROOT, firstZROOT = fSzROOT;
+  // offset the volume translation. Turn this back once we're done.
+  double firstXROOT = fSxROOT - fTx * units::m / units::cm, 
+    firstYROOT = fSyROOT - fTy * units::m / units::cm, 
+    firstZROOT = fSzROOT - fTz * units::m / units::cm;
 
   TVector3 dumori(0.0, 0.0, 0.0);
 
@@ -514,6 +536,9 @@ bool VertexGenerator::VolumeEntryAndExitPoints( TVector3 & startPoint, TVector3 
   LOG( "HNL", pINFO )
     << "Starting to figure out entrances:"
     << "\nStarting point is ( " << fSx << ", " << fSy << ", " << fSz << " ) [ " << lunitString.c_str() << " ]"
+    << "\nIn our volume this becomes ( " << fSx - fTx * units::m / lunits << ", " 
+    << fSy - fTy * units::m / lunits << ", " << fSz - fTz * units::m / lunits << " ) [ " 
+    << lunitString.c_str() << " ]"
     << "\nStarting dirn  is ( " << fPx << ", " << fPy << ", " << fPz << " ) ";
 
   std::string pathString = this->CheckGeomPoint( firstXROOT, firstYROOT, firstZROOT );
@@ -552,6 +577,11 @@ bool VertexGenerator::VolumeEntryAndExitPoints( TVector3 & startPoint, TVector3 
   fExROOT = ( gGeoManager->GetCurrentPoint() )[0];
   fEyROOT = ( gGeoManager->GetCurrentPoint() )[1];
   fEzROOT = ( gGeoManager->GetCurrentPoint() )[2];
+
+  fEx += fTx * units::m / lunits; fEy += fTy * units::m / lunits; fEz += fTz * units::m / lunits;
+  fExROOT += fTx * units::m / units::cm; fEyROOT += fTy * units::m / units::cm; fEzROOT += fTz * units::m / units::cm;
+
+  entryPoint.SetXYZ( fEx, fEy, fEz ); // ensure correct units
 
   TVector3 entryPoint_user( fExROOT * units::cm / units::m,
 			    fEyROOT * units::cm / units::m,
@@ -599,6 +629,11 @@ bool VertexGenerator::VolumeEntryAndExitPoints( TVector3 & startPoint, TVector3 
   fXyROOT = ( gGeoManager->GetCurrentPoint() )[1];
   fXzROOT = ( gGeoManager->GetCurrentPoint() )[2];
 
+  fXx += fTx * units::m / lunits; fXy += fTy * units::m / lunits; fXz += fTz * units::m / lunits;
+  fXxROOT += fTx * units::m / units::cm; fXyROOT += fTy * units::m / units::cm; fXzROOT += fTz * units::m / units::cm;
+
+  exitPoint.SetXYZ( fXx, fXy, fXz ); // ensure correct units
+
   TVector3 exitPoint_user( fXxROOT * units::cm / units::m,
 			   fXyROOT * units::cm / units::m,
 			   fXzROOT * units::cm / units::m ); // USER, m
@@ -644,6 +679,8 @@ void VertexGenerator::LoadConfig()
   fUx = fDetTranslation.at(0); fUy = fDetTranslation.at(1); fUz = fDetTranslation.at(2);
   fAx1 = fB2URotation.at(0); fAz = fB2URotation.at(1); fAx2 = fB2URotation.at(2);
   fBx1 = fDetRotation.at(0); fBz = fDetRotation.at(1); fBx2 = fDetRotation.at(2);
+
+  fTx = 0.0; fTy = 0.0; fTz = 0.0;
 
   fIsConfigLoaded = true;
 }
