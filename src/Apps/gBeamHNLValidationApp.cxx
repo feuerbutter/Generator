@@ -240,6 +240,7 @@ double           gOptGeomTUnits = 0;                     // input geometry time 
 TGeoManager *    gOptRootGeoManager = 0;                 // the workhorse geometry manager
 TGeoVolume  *    gOptRootGeoVolume  = 0;
 #endif // #ifdef __CAN_USE_ROOT_GEOM__
+bool             gOptTopVolSelected = false;             // did the user ask for a specific top volume?
 string           gOptTopVolName = kDefOptTopVolName;     // input geometry top event generation volume
 
 // Geometry bounding box and origin - read from the input geometry file (if any)
@@ -283,7 +284,7 @@ int main(int argc, char ** argv)
 #ifdef __CAN_GENERATE_EVENTS_USING_A_FLUX__
 int TestFluxFromDk2nu()
 {
-  assert( !gOptIsMonoEnFlux && gOptIsUsingDk2nu );
+  assert( !gOptIsMonoEnFlux && gOptIsUsingDk2nu && "Provided input flux files" );
 
   string foutName("test_flux_dk2nu.root");
   
@@ -307,14 +308,18 @@ int TestFluxFromDk2nu()
       << "The specified ROOT geometry doesn't exist! Initialization failed!";
     exit(1);
   }
+  if( !gOptRootGeoManager ) gOptRootGeoManager = TGeoManager::Import(gOptRootGeom.c_str()); 
+  if( !gOptTopVolSelected ){
+    TGeoVolume * main_volume = gOptRootGeoManager->GetTopVolume();
+    gOptTopVolName = main_volume->GetName();
+    LOG("gevald_hnl", pINFO) << "Using top volume name " << gOptTopVolName;
+  }
   fluxCreator->SetGeomFile( gOptRootGeom, gOptTopVolName );
 
   int maxFluxEntries = -1;
 
-  if( !gOptRootGeoManager ) gOptRootGeoManager = TGeoManager::Import(gOptRootGeom.c_str()); 
-
   TGeoVolume * top_volume = gOptRootGeoManager->GetVolume(gOptTopVolName.c_str());
-  assert( top_volume );
+  assert( top_volume && "Top volume exists" );
   TGeoShape * ts  = top_volume->GetShape();
   __attribute__((unused)) TGeoBBox *  box = (TGeoBBox *)ts;
 
@@ -561,9 +566,14 @@ int TestDecay(void)
   }
 
   if( !gOptRootGeoManager ) gOptRootGeoManager = TGeoManager::Import(gOptRootGeom.c_str()); 
+  if( !gOptTopVolSelected ){
+    TGeoVolume * main_volume = gOptRootGeoManager->GetTopVolume();
+    gOptTopVolName = main_volume->GetName();
+    LOG("gevald_hnl", pINFO) << "Using top volume name " << gOptTopVolName;
+  }
   
   TGeoVolume * top_volume = gOptRootGeoManager->GetVolume(gOptTopVolName.c_str());
-  assert( top_volume );
+  assert( top_volume && "Top volume exists" );
   TGeoShape * ts  = top_volume->GetShape();
   __attribute__((unused)) TGeoBBox *  box = (TGeoBBox *)ts;
   
@@ -579,8 +589,8 @@ int TestDecay(void)
   std::map< HNLDecayMode_t, double > valMap = sh.GetValidChannels();
   //const double CoMLifetime = sh.GetCoMLifetime();
 
-  assert( valMap.size() > 0 ); // must be able to decay to something!
-  assert( (*valMap.begin()).first == kHNLDcyNuNuNu );
+  assert( valMap.size() > 0 && "Exists kinematically accessible decay channel" ); // must be able to decay to something!
+  assert( (*valMap.begin()).first == kHNLDcyNuNuNu && "Lightest decay channel vvv is accessible" );
 
   LOG( "gevald_hnl", pINFO )
     << "\n\nTesting decay modes for the HNL."
@@ -597,7 +607,7 @@ int TestDecay(void)
   //gOptEnergyHNL = utils::hnl::GetCfgDouble( "HNL", "ParticleGun", "PG-Energy" );
   gOptEnergyHNL = hnlgen->GetPGunEnergy();
   double p3HNL = std::sqrt( gOptEnergyHNL * gOptEnergyHNL - gCfgMassHNL * gCfgMassHNL );
-  assert( p3HNL >= 0.0 );
+  assert( p3HNL >= 0.0 && "HNL 3-momentum >= 0.0" );
   TLorentzVector * p4HNL = new TLorentzVector( p3HNL * gCfgHNLCx, 
 					       p3HNL * gCfgHNLCy, 
 					       p3HNL * gCfgHNLCz, gOptEnergyHNL );
@@ -866,8 +876,10 @@ int TestGeom(void)
   outTree->Branch( "lifetime_LAB", &use_lifetime,    "lifetime_LAB/D"    );
   outTree->Branch( "lifetime_CM",  &use_CMlifetime,  "lifetime_CM/D"     );
 
+  double gMaxCoupling = std::max( gCfgECoupling, std::max( gCfgMCoupling, gCfgTCoupling ) );
+  double gLog = static_cast<double>(static_cast<int>(std::log10(gMaxCoupling) - 0.5)); // rounding
   TH1D hWeight( "hWeight", "Log_{10} ( P( decay in detector ) )", 
-		160, -15.0, 1.0  );
+		120, gLog-0.5, gLog+0.1  ); // (160, -15.0, 1.0) --> bin width in 0.1 decade
   TH1D hLength( "hLength", "Length travelled in detector / max possible length in detector",
 		100, 0., 1.0 );
 
@@ -877,13 +889,12 @@ int TestGeom(void)
       << "The specified ROOT geometry doesn't exist! Initialization failed!";
     exit(1);
   }
-  
-  gOptRootGeoManager = TGeoManager::Import(gOptRootGeom.c_str());
-  TGeoVolume * top_volume = gOptRootGeoManager->GetVolume(gOptTopVolName.c_str());
-  assert( top_volume );
 
   // Read geometry bounding box - for vertex position generation
+  gOptRootGeoManager = TGeoManager::Import(gOptRootGeom.c_str());
   InitBoundingBox();
+  TGeoVolume * top_volume = gOptRootGeoManager->GetVolume(gOptTopVolName.c_str());
+  assert( top_volume && "Top volume exists" );
   
   const Algorithm * algHNLGen = AlgFactory::Instance()->GetAlgorithm("genie::hnl::Decayer", "Default");
   const Algorithm * algVtxGen = AlgFactory::Instance()->GetAlgorithm("genie::hnl::VertexGenerator", "Default");
@@ -900,7 +911,7 @@ int TestGeom(void)
   //gOptEnergyHNL = utils::hnl::GetCfgDouble( "HNL", "ParticleGun", "PG-Energy" );
   gOptEnergyHNL = hnlgen->GetPGunEnergy();
   double p3HNL = std::sqrt( gOptEnergyHNL * gOptEnergyHNL - gCfgMassHNL * gCfgMassHNL );
-  assert( p3HNL >= 0.0 );
+  assert( p3HNL >= 0.0 && "HNL 3-momentum >= 0.0" );
   TLorentzVector * p4HNL = new TLorentzVector( p3HNL * gCfgHNLCx, 
 					       p3HNL * gCfgHNLCy, 
 					       p3HNL * gCfgHNLCz, gOptEnergyHNL );
@@ -932,7 +943,7 @@ int TestGeom(void)
   const double PGdy = utils::hnl::GetCfgDouble( "HNL", "ParticleGun", "PG-OriginDY" );
   const double PGdz = utils::hnl::GetCfgDouble( "HNL", "ParticleGun", "PG-OriginDZ" ); // m
   */
-  assert( PGdx > 0.0 && PGdy > 0.0 && PGdz > 0.0 );
+  assert( PGdx > 0.0 && PGdy > 0.0 && PGdz > 0.0 && "HNL origin vertex box CommonHNL.xml::PGd{x,y,z} is non-trivial" );
 
   double c2 = std::sqrt( std::pow( gCfgHNLCx, 2.0 ) + std::pow( gCfgHNLCy, 2.0 ) + std::pow( gCfgHNLCz, 2.0 ) );
   const double PGcx = gCfgHNLCx / c2;
@@ -963,17 +974,47 @@ int TestGeom(void)
 
   // first make the points
   const int NCARTESIAN = 5;
-  const int NSPHERICAL = 9;
+  const int NSPHERICAL = 21; //9;
   const int NMAX = NCARTESIAN * NCARTESIAN * NCARTESIAN * NSPHERICAL * NSPHERICAL;
 
   double arr_ox[ NCARTESIAN ] = { PGox - PGdx, PGox - PGdx/2.0, PGox, PGox + PGdx/2.0, PGox + PGdx };
   double arr_oy[ NCARTESIAN ] = { PGoy - PGdy, PGoy - PGdy/2.0, PGoy, PGoy + PGdy/2.0, PGoy + PGdy };
   double arr_oz[ NCARTESIAN ] = { PGoz - PGdz, PGoz - PGdz/2.0, PGoz, PGoz + PGdz/2.0, PGoz + PGdz };
 
+  /*
   double arr_theta[ NSPHERICAL ] = { PGtheta - PGdtheta, PGtheta - 3.0/4.0 * PGdtheta, PGtheta - 1.0/2.0 * PGdtheta, PGtheta - 1.0/4.0 * PGdtheta, PGtheta, PGtheta + 1.0/4.0 * PGdtheta, PGtheta + 1.0/2.0 * PGdtheta, PGtheta + 3.0/4.0 * PGdtheta, PGtheta + PGdtheta };
   double arr_phi[ NSPHERICAL ] = { PGphi - PGdphi, PGphi - 3.0/4.0 * PGdphi, PGphi - 1.0/2.0 * PGdphi, PGphi - 1.0/4.0 * PGdphi, PGphi, PGphi + 1.0/4.0 * PGdphi, PGphi + 1.0/2.0 * PGdphi, PGphi + 3.0/4.0 * PGdphi, PGphi + PGdphi };
+  */
 
-  // so now we have NCARTESIAN ^3 x NSPHERICAL ^2 points to iterate over. That's 10125 events for 5 and 9
+  double arr_theta[ NSPHERICAL ] = {
+    PGtheta - 10.0 / 10.0 * PGdtheta, PGtheta - 9.0 / 10.0 * PGdtheta,
+    PGtheta - 8.0 / 10.0 * PGdtheta, PGtheta - 7.0 / 10.0 * PGdtheta,
+    PGtheta - 6.0 / 10.0 * PGdtheta, PGtheta - 5.0 / 10.0 * PGdtheta,
+    PGtheta - 4.0 / 10.0 * PGdtheta, PGtheta - 3.0 / 10.0 * PGdtheta,
+    PGtheta - 2.0 / 10.0 * PGdtheta, PGtheta - 1.0 / 10.0 * PGdtheta,
+    PGtheta,
+    PGtheta + 1.0 / 10.0 * PGdtheta, PGtheta + 2.0 / 10.0 * PGdtheta,
+    PGtheta + 3.0 / 10.0 * PGdtheta, PGtheta + 4.0 / 10.0 * PGdtheta,
+    PGtheta + 5.0 / 10.0 * PGdtheta, PGtheta + 6.0 / 10.0 * PGdtheta,
+    PGtheta + 7.0 / 10.0 * PGdtheta, PGtheta + 8.0 / 10.0 * PGdtheta,
+    PGtheta + 9.0 / 10.0 * PGdtheta, PGtheta + 10.0 / 10.0 * PGdtheta
+  };
+
+  double arr_phi[ NSPHERICAL ] = {
+    PGphi - 10.0 / 10.0 * PGdphi, PGphi - 9.0 / 10.0 * PGdphi,
+    PGphi - 8.0 / 10.0 * PGdphi, PGphi - 7.0 / 10.0 * PGdphi,
+    PGphi - 6.0 / 10.0 * PGdphi, PGphi - 5.0 / 10.0 * PGdphi,
+    PGphi - 4.0 / 10.0 * PGdphi, PGphi - 3.0 / 10.0 * PGdphi,
+    PGphi - 2.0 / 10.0 * PGdphi, PGphi - 1.0 / 10.0 * PGdphi,
+    PGphi,
+    PGphi + 1.0 / 10.0 * PGdphi, PGphi + 2.0 / 10.0 * PGdphi,
+    PGphi + 3.0 / 10.0 * PGdphi, PGphi + 4.0 / 10.0 * PGdphi,
+    PGphi + 5.0 / 10.0 * PGdphi, PGphi + 6.0 / 10.0 * PGdphi,
+    PGphi + 7.0 / 10.0 * PGdphi, PGphi + 8.0 / 10.0 * PGdphi,
+    PGphi + 9.0 / 10.0 * PGdphi, PGphi + 10.0 / 10.0 * PGdphi
+  };
+
+  // so now we have NCARTESIAN ^3 x NSPHERICAL ^2 points to iterate over. That's 10125 events for 5 and 9, or 55125 for 5 and 21
 
   if( !gOptRootGeoManager ) gOptRootGeoManager = TGeoManager::Import(gOptRootGeom.c_str()); 
   
@@ -985,6 +1026,9 @@ int TestGeom(void)
   while( true ){
 
     if( ievent == NMAX ) break;
+
+    int irat = ievent / ( NMAX / 1000 );    
+    std::cerr << 0.1 * irat << " % " << " ( " << ievent << " / " << NMAX << " processed ) \r" << std::flush;
 
     LOG( "gevald_hnl", pDEBUG )
       << "*** Building event = " << ievent;
@@ -1030,12 +1074,14 @@ int TestGeom(void)
     TVector3 startPoint, momentum;
     TVector3 entryPoint, exitPoint, decayPoint;
 
-    startPoint.SetXYZ( use_ox, use_oy, use_oz ); // mm
+    startPoint.SetXYZ( use_ox * units::mm / units::m, 
+		       use_oy * units::mm / units::m,
+		       use_oz * units::mm / units::m ); // m
     momentum.SetXYZ( p4HNL->Px(), p4HNL->Py(), p4HNL->Pz() );
 
-    use_start[0] = use_ox;
-    use_start[1] = use_oy;
-    use_start[2] = use_oz;
+    use_start[0] = use_ox * units::mm / units::m;
+    use_start[1] = use_oy * units::mm / units::m;
+    use_start[2] = use_oz * units::mm / units::m; // m
 
     use_momentum[0] = p4HNL->Px();
     use_momentum[1] = p4HNL->Py();
@@ -1044,7 +1090,7 @@ int TestGeom(void)
 
     LOG( "gevald_hnl", pDEBUG )
       << "Set start point for this trajectory = " << utils::print::Vec3AsString( &startPoint )
-      << " [mm]";
+      << " [m]";
     LOG( "gevald_hnl", pDEBUG )
       << "Set momentum for this trajectory = " << utils::print::Vec3AsString( &momentum )
       << " [GeV/c]";
@@ -1055,8 +1101,8 @@ int TestGeom(void)
     GHepParticle ptHNL( genie::kPdgHNL, kIStInitialState, -1, -1, -1, -1, tmpMom, tmpVtx );
     event->AddParticle( ptHNL );
     LOG( "gevald_hnl", pDEBUG )
-      << "\nProbe x4 = " << utils::print::X4AsString( event->Particle(0)->X4() )
-      << "\nProbe p4 = " << utils::print::P4AsString( event->Particle(0)->P4() );
+      << "\nProbe x4 = " << utils::print::X4AsString( event->Particle(0)->X4() ) << " [m]"
+      << "\nProbe p4 = " << utils::print::P4AsString( event->Particle(0)->P4() ) << " [GeV/c]";
 
     event->Particle(0)->SetFirstMother(-2);
     vtxGen->ProcessEventRecord(event);
@@ -1076,9 +1122,9 @@ int TestGeom(void)
       use_exit[1]  = exitPoint.Y();
       use_exit[2]  = exitPoint.Z();
       
-      use_decay[0] = decayPoint.X();
-      use_decay[1] = decayPoint.Y();
-      use_decay[2] = decayPoint.Z();
+      use_decay[0] = decayPoint.X() * units::m / units::mm;
+      use_decay[1] = decayPoint.Y() * units::m / units::mm;
+      use_decay[2] = decayPoint.Z() * units::m / units::mm;
 
       double devX = decayPoint.X() * units::m / units::mm - entryPoint.X();
       double devY = decayPoint.Y() * units::m / units::mm - entryPoint.Y();
@@ -1152,9 +1198,14 @@ void InitBoundingBox(void)
   }
 
   if( !gOptRootGeoManager ) gOptRootGeoManager = TGeoManager::Import(gOptRootGeom.c_str()); 
+  if( !gOptTopVolSelected ){
+    TGeoVolume * main_volume = gOptRootGeoManager->GetTopVolume();
+    gOptTopVolName = main_volume->GetName();
+    LOG("gevald_hnl", pINFO) << "Using top volume name " << gOptTopVolName;
+  }
 
   TGeoVolume * top_volume = gOptRootGeoManager->GetVolume(gOptTopVolName.c_str());
-  assert( top_volume );
+  assert( top_volume && "Top volume exists" );
   TGeoShape * ts  = top_volume->GetShape();
   TGeoBBox *  box = (TGeoBBox *)ts;
 
@@ -1350,12 +1401,13 @@ void GetCommandLineArgs(int argc, char ** argv)
   if( gOptUsingRootGeom ) {
     // check for top volume selection
     if( parser.OptionExists("top_volume") ) {
+      gOptTopVolSelected = true;
       gOptTopVolName = parser.ArgAsString("top_volume");
       LOG("gevgen_hnl", pINFO)
 	<< "Using the following volume as top: " << gOptTopVolName;
     } else {
       LOG("gevgen_hnl", pINFO)
-	<< "Using default top_volume name \"" << kDefOptTopVolName << "\"";
+	<< "Using default top_volume";
     } // --top_volume
   }
 

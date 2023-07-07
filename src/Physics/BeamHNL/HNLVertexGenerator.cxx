@@ -57,12 +57,13 @@ void VertexGenerator::ProcessEventRecord(GHepRecord * event_rec) const
     
     TGeoVolume * main_volume = fGeoManager->GetTopVolume();
     TGeoVolume * top_volume = fGeoManager->GetVolume( fTopVolume.c_str() );
-    assert( top_volume );
+    assert( top_volume && "Top volume exists" );
     // now get the translation of the top volume
     if( main_volume != top_volume ) {
-      main_volume->FindMatrixOfDaughterVolume(top_volume);
-      TGeoHMatrix * hmat = fGeoManager->GetHMatrix();
-      Double_t * tran = hmat->GetTranslation();
+      //main_volume->FindMatrixOfDaughterVolume(top_volume);
+      //TGeoHMatrix * hmat = fGeoManager->GetHMatrix();
+      TGeoMatrix * hmat = this->FindFullTransformation( main_volume, top_volume );
+      const Double_t * tran = hmat->GetTranslation();
       fTx = tran[0] * units::cm / units::m;
       fTy = tran[1] * units::cm / units::m;
       fTz = tran[2] * units::cm / units::m;
@@ -76,7 +77,7 @@ void VertexGenerator::ProcessEventRecord(GHepRecord * event_rec) const
     
     this->ImportBoundingBox( box );
     
-    this->ImportBoundingBox(box);
+    //this->ImportBoundingBox(box);
   }
 
   this->SetStartingParameters( event_rec );
@@ -89,7 +90,7 @@ void VertexGenerator::ProcessEventRecord(GHepRecord * event_rec) const
   
   bool didIntersectDet = this->VolumeEntryAndExitPoints( startPoint, momentum, entryPoint, exitPoint, fGeoManager, fGeoVolume );
 
-  if( !isParticleGun && isUsingDk2nu ) assert( didIntersectDet ); // forced to hit detector somewhere!
+  if( !isParticleGun && isUsingDk2nu ) assert( didIntersectDet && "Forced to hit detector somewhere" ); // forced to hit detector somewhere!
   else {
     std::vector< double > * newProdVtx = new std::vector< double >();
     newProdVtx->emplace_back( startPoint.X() );
@@ -164,7 +165,7 @@ void VertexGenerator::ProcessEventRecord(GHepRecord * event_rec) const
   // the validation app doesn't run the Decayer. So we will insert two neutrinos (not a valid
   // decay mode), to store entry and exit point
   if( !isUsingDk2nu ){
-    assert( !event_rec->Particle(1) );
+    assert( !event_rec->Particle(1) && "Event record only has HNL if gevald_hnl -M 3" );
     
     TLorentzVector tmpp4( 0.0, 0.0, 0.0, 0.5 );
     TLorentzVector ex4( 0.0, 0.0, 0.0, 0.0 );
@@ -189,7 +190,8 @@ void VertexGenerator::ProcessEventRecord(GHepRecord * event_rec) const
     (event_rec->Particle(1))->SetPosition( entryPoint.X(), entryPoint.Y(), entryPoint.Z(), event_rec->Particle(1)->Vt() );
     (event_rec->Particle(2))->SetPosition( exitPoint.X(), exitPoint.Y(), exitPoint.Z(), event_rec->Particle(2)->Vt() );
   }
-  
+
+  delete p4HNL;
 }
 //____________________________________________________________________________
 void VertexGenerator::EnforceUnits( std::string length_units, std::string angle_units, std::string time_units ) const{
@@ -230,7 +232,7 @@ double VertexGenerator::CalcTravelLength( double betaMag, double CoMLifetime, do
   // t   = time-of-flight (in rest frame)
   // tau = CoMLifetime
 
-  assert( betaMag > 0.0 && betaMag < 1.0 ); // massive moving particle
+  assert( betaMag > 0.0 && betaMag < 1.0 && "HNL is massive and moving" ); // massive moving particle
   double maxLabTime = maxLength / ( betaMag * kNewSpeedOfLight );
   double gamma = std::sqrt( 1.0 / ( 1.0 - betaMag * betaMag ) );
   double maxRestTime = maxLabTime / gamma ; // this is how "wide" the detector looks like
@@ -317,7 +319,8 @@ bool VertexGenerator::SDVEntryAndExitPoints( TVector3 & startPoint, TVector3 mom
 					    TVector3 & entryPoint, TVector3 & exitPoint ) const
 {
   assert( fOx == 0.0 && fOy == 0.0 && fOz == 0.0 && 
-	  fLx == 1000.0 && fLy == 1000.0 && fLz == 1000.0 ); // SDV, mm
+	  fLx == 1000.0 && fLy == 1000.0 && fLz == 1000.0 &&
+	  "Decay volume is unit-m side, centred at origin"); // SDV, mm
   fSx = startPoint.X(); fSy = startPoint.Y(); fSz = startPoint.Z(); // mm
   fPx = momentum.X(); fPy = momentum.Y(); fPz = momentum.Z(); // GeV
   double fP2 = fPx*fPx + fPy*fPy + fPz*fPz; double fP = std::sqrt(fP2); // GeV
@@ -448,9 +451,10 @@ void VertexGenerator::SetStartingParameters( GHepRecord * event_rec ) const
 
   fCoMLifetime = event_rec->Probability();
 
-  assert( event_rec->Particle(0) );
+  assert( event_rec->Particle(0) && "Event record has HNL" );
 
   TVector3 dumori(0.0, 0.0, 0.0); // tgt-hall frame origin is 0
+  /*
   TVector3 detori( (fCx + fDetTranslation.at(0)) * units::m / units::cm,
 		   (fCy + fDetTranslation.at(1)) * units::m / units::cm,
 		   (fCz + fDetTranslation.at(2)) * units::m / units::cm ); // for rotations of the detector
@@ -458,6 +462,13 @@ void VertexGenerator::SetStartingParameters( GHepRecord * event_rec ) const
     detori.SetXYZ( fDetTranslation.at(0) * units::m / units::mm,
 		   fDetTranslation.at(1) * units::m / units::mm,
 		   fDetTranslation.at(2) * units::m / units::mm );
+  }
+  */
+  TVector3 detori( (fCx) * units::m / units::cm,
+		   (fCy) * units::m / units::cm,
+		   (fCz) * units::m / units::cm ); // for rotations of the detector
+  if( isParticleGun ){
+    detori.SetXYZ( 0.0, 0.0, 0.0 );
   }
 
   TLorentzVector * x4HNL = event_rec->Particle(0)->GetX4(); // NEAR, cm ns
@@ -470,9 +481,15 @@ void VertexGenerator::SetStartingParameters( GHepRecord * event_rec ) const
 			 xHNL_user.Z() - (fCz) * units::m / units::cm,
 			 x4HNL->T() ); // USER, cm ns
   } else {
+    /*
     x4HNL_user->SetXYZT( xHNL_user.X() - fDetTranslation.at(0) * units::m / units::mm,
 			 xHNL_user.Y() - fDetTranslation.at(1) * units::m / units::mm,
 			 xHNL_user.Z() - fDetTranslation.at(2) * units::m / units::mm,
+			 x4HNL->T() ); // USER, mm ns
+    */
+    x4HNL_user->SetXYZT( xHNL_user.X() * units::m / units::mm,
+			 xHNL_user.Y() * units::m / units::mm,
+			 xHNL_user.Z() * units::m / units::mm,
 			 x4HNL->T() ); // USER, mm ns
   }
 
@@ -492,7 +509,7 @@ void VertexGenerator::SetStartingParameters( GHepRecord * event_rec ) const
     << "\nx4HNL_user = " << utils::print::X4AsString( x4HNL_user ) << " [mm]"
     << "\nstartPoint = " << utils::print::Vec3AsString( &startPoint ) << " [mm]";
 
-  double mtomm = units::m / units::mm;
+  //double mtomm = units::m / units::mm;
   
   TLorentzVector * p4HNL = event_rec->Particle(0)->GetP4();
   TVector3 momentum( p4HNL->Px(), p4HNL->Py(), p4HNL->Pz() );
@@ -503,6 +520,11 @@ void VertexGenerator::SetStartingParameters( GHepRecord * event_rec ) const
   fSyROOT = fSy * units::mm / units::cm;
   fSzROOT = fSz * units::mm / units::cm;
   fPx = momentum.X(); fPy = momentum.Y(); fPz = momentum.Z();
+
+  delete p4HNL;
+  delete x4HNL;
+  delete x4HNL_user;
+  if( x4Flux ) delete x4Flux;
 }
 //____________________________________________________________________________
 bool VertexGenerator::VolumeEntryAndExitPoints( TVector3 & startPoint, TVector3 & momentum,
@@ -526,6 +548,10 @@ bool VertexGenerator::VolumeEntryAndExitPoints( TVector3 & startPoint, TVector3 
   double firstXROOT = fSxROOT - fTx * units::m / units::cm, 
     firstYROOT = fSyROOT - fTy * units::m / units::cm, 
     firstZROOT = fSzROOT - fTz * units::m / units::cm;
+  // also offset the detector offset and reapply once we're done
+  firstXROOT -= fDetTranslation.at(0) * units::m / units::cm;
+  firstYROOT -= fDetTranslation.at(1) * units::m / units::cm;
+  firstZROOT -= fDetTranslation.at(2) * units::m / units::cm;
 
   TVector3 dumori(0.0, 0.0, 0.0);
 
@@ -536,8 +562,10 @@ bool VertexGenerator::VolumeEntryAndExitPoints( TVector3 & startPoint, TVector3 
   LOG( "HNL", pINFO )
     << "Starting to figure out entrances:"
     << "\nStarting point is ( " << fSx << ", " << fSy << ", " << fSz << " ) [ " << lunitString.c_str() << " ]"
-    << "\nIn our volume this becomes ( " << fSx - fTx * units::m / lunits << ", " 
-    << fSy - fTy * units::m / lunits << ", " << fSz - fTz * units::m / lunits << " ) [ " 
+    << "\nIn our volume this becomes ( " 
+    << fSx - (fTx + fDetTranslation.at(0)) * units::m / lunits << ", " 
+    << fSy - (fTy + fDetTranslation.at(1)) * units::m / lunits << ", " 
+    << fSz - (fTz + fDetTranslation.at(2)) * units::m / lunits << " ) [ " 
     << lunitString.c_str() << " ]"
     << "\nStarting dirn  is ( " << fPx << ", " << fPy << ", " << fPz << " ) ";
 
@@ -545,6 +573,67 @@ bool VertexGenerator::VolumeEntryAndExitPoints( TVector3 & startPoint, TVector3 
   LOG( "HNL", pDEBUG ) << "Here is the pathString: " << pathString;
 
   LOG( "HNL", pDEBUG ) << "Starting to search for intersections...";
+
+  if( isParticleGun ) {
+    // We start outside the detector. First, write out the starting point in top_volume coordinates
+    //RandomGen * rnd = RandomGen::Instance();
+    LOG( "HNL" , pDEBUG )
+      << "isParticleGun!!"
+      << "\nstartPoint = ( " << (gGeoManager->GetCurrentPoint())[0]
+      << ", " << (gGeoManager->GetCurrentPoint())[1] << ", " << (gGeoManager->GetCurrentPoint())[2]
+      << " ) [top_volume, cm]"
+      << "\nDirection = ( " << (gGeoManager->GetCurrentDirection())[0]
+      << ", " << (gGeoManager->GetCurrentDirection())[1] 
+      << ", " << (gGeoManager->GetCurrentDirection())[2] << " ) [GeV/GeV]";
+
+    assert( (gGeoManager->GetCurrentDirection())[2] != 0.0 && "HNL propagates along USER z" );
+
+    // Check along the detector for entering the detector geometry
+
+    //double xBack = -fLxROOT/2.0; double xFront = fLxROOT/2.0;
+    //double yBack = -fLyROOT/2.0; double yFront = fLyROOT/2.0;
+    double zBack = -fLzROOT/2.0; double zFront = fLzROOT/2.0; // USER cm
+
+    //double zTest = (rnd->RndGen()).Uniform( zBack, zFront ); // USER cm
+    double zTest = zBack + 0.01 * (zFront - zBack);
+
+    double dz = zTest - (gGeoManager->GetCurrentPoint())[2]; // cm
+    double dxdz = (gGeoManager->GetCurrentDirection())[0]/(gGeoManager->GetCurrentDirection())[2];
+    double dydz = (gGeoManager->GetCurrentDirection())[1]/(gGeoManager->GetCurrentDirection())[2];
+    double dx = dxdz * dz; // cm
+    double dy = dydz * dz; // cm
+    double xTest = (gGeoManager->GetCurrentPoint())[0] + dx;
+    double yTest = (gGeoManager->GetCurrentPoint())[1] + dy;
+
+    // now check to see if this is within the geometry
+    pathString = this->CheckGeomPoint( xTest, yTest, zTest );
+    while( pathString.find( fTopVolume.c_str() ) == string::npos &&
+	   zTest < zFront ){
+      dz = zTest - (gGeoManager->GetCurrentPoint())[2]; // cm
+      dxdz = (gGeoManager->GetCurrentDirection())[0]/(gGeoManager->GetCurrentDirection())[2];
+      dydz = (gGeoManager->GetCurrentDirection())[1]/(gGeoManager->GetCurrentDirection())[2];
+      dx = dxdz * dz; // cm
+      dy = dydz * dz; // cm
+      xTest = (gGeoManager->GetCurrentPoint())[0] + dx;
+      yTest = (gGeoManager->GetCurrentPoint())[1] + dy;
+
+      pathString = this->CheckGeomPoint( xTest, yTest, zTest );
+
+      zTest += 0.01 * (zFront - zBack);
+    }
+    if( pathString.find( fTopVolume.c_str() ) == string::npos ){
+      LOG( "HNL", pDEBUG )
+	<< "This trajectory does NOT intersect the detector. Bailing...";
+      return false;
+    } else { // we are ok! Set the new starting point and continue to find entry and exit points.
+      LOG( "HNL", pDEBUG )
+	<< "This trajectory DOES intersect the detector. Good!";
+      gGeoManager->SetCurrentPoint( xTest, yTest, zTest );
+      firstXROOT = xTest; firstYROOT = yTest; firstZROOT = zTest;
+      LOG( "HNL", pDEBUG )
+	<< "New starting point is at ( " << xTest << ", " << yTest << ", " << zTest << " ) [top_volume, cm]";
+    }
+  } // if( isParticleGun )
 
   // we are inside the top volume. We want to exit it twice, once going backwards and once forwards.
   // The track enters in the former point and exits in the latter.
@@ -558,7 +647,8 @@ bool VertexGenerator::VolumeEntryAndExitPoints( TVector3 & startPoint, TVector3 
 				     (gGeoManager->GetCurrentPoint())[2] );
 
   entryPoint.SetXYZ( firstXROOT, firstYROOT, firstZROOT );
-  const double smallStep = std::max( 0.1, 1.0e-3 * std::min( fLxROOT, std::min( fLyROOT, fLzROOT ) ) ); // cm --> have mm precision
+  const double smallStep = 0.1; // cm --> have mm precision
+  //std::max( 0.1, 1.0e-3 * std::min( fLxROOT, std::min( fLyROOT, fLzROOT ) ) ); // cm --> have mm precision
   while( pathString.find( fTopVolume.c_str() ) != string::npos ){
     double newX = entryPoint.X() + (gGeoManager->GetCurrentDirection())[0] * smallStep;
     double newY = entryPoint.Y() + (gGeoManager->GetCurrentDirection())[1] * smallStep;
@@ -568,7 +658,7 @@ bool VertexGenerator::VolumeEntryAndExitPoints( TVector3 & startPoint, TVector3 
     if( pathString.find( fTopVolume.c_str() ) != string::npos )
       entryPoint.SetXYZ( newX, newY, newZ );
   } // exit out
-
+  
   // Let's save this point
   fEx = ( gGeoManager->GetCurrentPoint() )[0] * genie::units::cm / lunits;
   fEy = ( gGeoManager->GetCurrentPoint() )[1] * genie::units::cm / lunits;
@@ -578,8 +668,12 @@ bool VertexGenerator::VolumeEntryAndExitPoints( TVector3 & startPoint, TVector3 
   fEyROOT = ( gGeoManager->GetCurrentPoint() )[1];
   fEzROOT = ( gGeoManager->GetCurrentPoint() )[2];
 
-  fEx += fTx * units::m / lunits; fEy += fTy * units::m / lunits; fEz += fTz * units::m / lunits;
-  fExROOT += fTx * units::m / units::cm; fEyROOT += fTy * units::m / units::cm; fEzROOT += fTz * units::m / units::cm;
+  fEx += (fTx + fDetTranslation.at(0)) * units::m / lunits; 
+  fEy += (fTy + fDetTranslation.at(1)) * units::m / lunits; 
+  fEz += (fTz + fDetTranslation.at(2)) * units::m / lunits;
+  fExROOT += (fTx + fDetTranslation.at(0)) * units::m / units::cm; 
+  fEyROOT += (fTy + fDetTranslation.at(1)) * units::m / units::cm; 
+  fEzROOT += (fTz + fDetTranslation.at(2)) * units::m / units::cm;
 
   entryPoint.SetXYZ( fEx, fEy, fEz ); // ensure correct units
 
@@ -620,7 +714,7 @@ bool VertexGenerator::VolumeEntryAndExitPoints( TVector3 & startPoint, TVector3 
       exitPoint.SetXYZ( newX, newY, newZ );
   } // exit out
 
-  // Let's save this point
+    // Let's save this point
   fXx = ( gGeoManager->GetCurrentPoint() )[0] * genie::units::cm / lunits;
   fXy = ( gGeoManager->GetCurrentPoint() )[1] * genie::units::cm / lunits;
   fXz = ( gGeoManager->GetCurrentPoint() )[2] * genie::units::cm / lunits;
@@ -629,8 +723,12 @@ bool VertexGenerator::VolumeEntryAndExitPoints( TVector3 & startPoint, TVector3 
   fXyROOT = ( gGeoManager->GetCurrentPoint() )[1];
   fXzROOT = ( gGeoManager->GetCurrentPoint() )[2];
 
-  fXx += fTx * units::m / lunits; fXy += fTy * units::m / lunits; fXz += fTz * units::m / lunits;
-  fXxROOT += fTx * units::m / units::cm; fXyROOT += fTy * units::m / units::cm; fXzROOT += fTz * units::m / units::cm;
+  fXx += (fTx + fDetTranslation.at(0)) * units::m / lunits; 
+  fXy += (fTy + fDetTranslation.at(1)) * units::m / lunits; 
+  fXz += (fTz + fDetTranslation.at(2)) * units::m / lunits;
+  fXxROOT += (fTx + fDetTranslation.at(0)) * units::m / units::cm; 
+  fXyROOT += (fTy + fDetTranslation.at(1)) * units::m / units::cm; 
+  fXzROOT += (fTz + fDetTranslation.at(2)) * units::m / units::cm;
 
   exitPoint.SetXYZ( fXx, fXy, fXz ); // ensure correct units
 
@@ -724,7 +822,7 @@ TVector3 VertexGenerator::ApplyUserRotation( TVector3 vec, TVector3 oriVec, std:
   
   vx -= ox; vy -= oy; vz -= oz; // make this rotation about detector origin
 
-  assert( rotVec.size() == 3 ); // want 3 Euler angles, otherwise this is unphysical.
+  assert( rotVec.size() == 3 && "3 Euler angles" ); // want 3 Euler angles, otherwise this is unphysical.
   double Ax2 = ( doBackwards ) ? -rotVec.at(2) : rotVec.at(2);
   double Az  = ( doBackwards ) ? -rotVec.at(1) : rotVec.at(1);
   double Ax1 = ( doBackwards ) ? -rotVec.at(0) : rotVec.at(0);
@@ -765,4 +863,167 @@ std::string VertexGenerator::CheckGeomPoint( Double_t x, Double_t y, Double_t z 
   TGeoNode *node = gGeoManager->FindNode(point[0], point[1], point[2]);
   gGeoManager->MasterToLocal(point, local);
   return gGeoManager->GetPath();
+}
+//____________________________________________________________________________
+TGeoMatrix * VertexGenerator::FindFullTransformation( TGeoVolume * top_vol, TGeoVolume * tar_vol ) const
+{
+  // Recurses over the ROOT file geometry structure to find the target volume tar_vol.
+  // Returns the full transformation matrix of the daughter volume as a composition of matrices
+
+  std::list<TGeoNode *> nodes; // to parse hierarchy (i.e. daughters)
+  std::list<std::string> paths; // store path of nodes checked
+  std::list<TGeoMatrix *> mats; // compositions of matrices here!
+
+  assert( top_vol && tar_vol && "Top and target volumes both accessible" );
+
+  std::string targetPath( tar_vol->GetName() );
+
+  // Start by grabbing the daughter structure of the top volume and parse until found
+  TGeoNode * top_node = top_vol->GetNode(0); nodes.emplace_back( top_node );
+  std::string top_path( top_node->GetName() ); paths.emplace_back( top_path );
+  TGeoMatrix * top_mat = top_node->GetMatrix(); mats.emplace_back( top_mat );
+
+  std::string test = paths.front();
+  // strip all slashes from test
+  while( test.find("/") != string::npos ){
+    int idx = test.find("/");
+    test = test.substr(idx+1);
+  }
+  // and strip tailing underscore
+  int ididx = test.rfind("_");
+  test = test.substr( 0, ididx );
+
+  LOG( "HNL", pNOTICE )
+    << "Looking for this targetPath: " << targetPath;
+
+  // could be we hit the top volume, in which case we skip the loop
+  bool foundPath = (strcmp( test.c_str(), targetPath.c_str() ) == 0);
+
+  //while( test.find( targetPath.c_str() ) == string::npos ){ // still looking for the path.
+  while( strcmp( test.c_str(), targetPath.c_str() ) != 0 && !foundPath ){ // still looking
+    TGeoNode * node = nodes.front();
+    std::string path = paths.front();
+    TGeoMatrix * mat = mats.front();
+
+    assert( node  && "Node is not null" );
+    assert( mat && "Matrix is not null" );
+
+    int nDaughters = node->GetNdaughters();
+    LOG( "HNL", pDEBUG ) << "Node with name " << path << " has " << nDaughters << " daughters...";
+    for( int iDaughter = 0; iDaughter < nDaughters; iDaughter++ ){
+      TGeoNode * dNode = node->GetDaughter(iDaughter);
+      assert( dNode && "Daughter node not null" );
+      std::string dPath( path );
+      dPath.append( "/" ); dPath.append( dNode->GetName() );
+      TGeoMatrix * nodeMat = dNode->GetMatrix();
+
+      LOG( "HNL", pDEBUG ) << "Got node, path, and matrix for daughter node "
+			   << iDaughter << " / " << nDaughters-1 << "...";
+
+      // construct the full updated matrix from multiplying dMat on the left of mat
+      const Double_t * nodeRot = nodeMat->GetRotationMatrix();
+      const Double_t * nodeTra = nodeMat->GetTranslation();
+      
+      const Double_t * baseRot = mat->GetRotationMatrix();
+      const Double_t * baseTra = mat->GetTranslation();
+
+      const Double_t compTra[3] = { baseTra[0] + nodeTra[0], 
+				    baseTra[1] + nodeTra[1],
+				    baseTra[2] + nodeTra[2] }; // this was easy.
+      const Double_t compRot[9] = { nodeRot[0] * baseRot[0] + nodeRot[1] * baseRot[3] + nodeRot[2] * baseRot[6],
+				    nodeRot[0] * baseRot[1] + nodeRot[1] * baseRot[4] + nodeRot[2] * baseRot[7],
+				    nodeRot[0] * baseRot[2] + nodeRot[1] * baseRot[5] + nodeRot[2] * baseRot[8],
+				    nodeRot[3] * baseRot[0] + nodeRot[4] * baseRot[3] + nodeRot[5] * baseRot[6],
+				    nodeRot[3] * baseRot[1] + nodeRot[4] * baseRot[4] + nodeRot[5] * baseRot[7],
+				    nodeRot[3] * baseRot[2] + nodeRot[4] * baseRot[5] + nodeRot[5] * baseRot[8],
+				    nodeRot[6] * baseRot[0] + nodeRot[7] * baseRot[3] + nodeRot[8] * baseRot[6],
+				    nodeRot[6] * baseRot[1] + nodeRot[7] * baseRot[4] + nodeRot[8] * baseRot[7],
+				    nodeRot[6] * baseRot[2] + nodeRot[7] * baseRot[5] + nodeRot[8] * baseRot[8] }; // less easy but ok.
+
+      // construct a TGeoMatrix * from these quantities...
+      TGeoHMatrix * hmat = new TGeoHMatrix( dPath.c_str() );
+      hmat->SetTranslation( compTra );
+      hmat->SetRotation( compRot );
+      TGeoMatrix * dMat = dynamic_cast< TGeoMatrix * >( hmat );
+
+      /*
+      LOG( "HNL", pDEBUG )
+	<< "\nNode with name " << targetPath << " not yet found."
+	<< "\nParsing node with name " << dPath << "..."
+	<< "\n\nThis node had the following translations: ( " 
+	<< nodeTra[0] << ", " << nodeTra[1] << ", " << nodeTra[2] << " )"
+	<< " composed onto ( " << baseTra[0] << ", " << baseTra[1] << ", " << baseTra[2] << " ),"
+	<< "\ngiving a final translation ( " << compTra[0] << ", " << compTra[1] << ", " 
+	<< compTra[2] << " )."
+	<< "\n\nThis node had the following rotation matrix: ( ( " 
+	<< nodeRot[0] << ", " << nodeRot[1] << ", " << nodeRot[2] << " ), ( "
+	<< nodeRot[3] << ", " << nodeRot[4] << ", " << nodeRot[5] << " ), ( "
+	<< nodeRot[6] << ", " << nodeRot[7] << ", " << nodeRot[8] << " ) ),"
+	<< "\ncomposed onto ( ( "
+	<< baseRot[0] << ", " << baseRot[1] << ", " << baseRot[2] << " ), ( "
+	<< baseRot[3] << ", " << baseRot[4] << ", " << baseRot[5] << " ), ( "
+	<< baseRot[6] << ", " << baseRot[7] << ", " << baseRot[8] << " ) ),"
+	<< "\ngiving a final rotation ( ( "
+	<< compRot[0] << ", " << compRot[1] << ", " << compRot[2] << " ), ( "
+	<< compRot[3] << ", " << compRot[4] << ", " << compRot[5] << " ), ( "
+	<< compRot[6] << ", " << compRot[7] << ", " << compRot[8] << " ) ).";
+      */
+
+      // add to list TAIL and strike away list HEAD
+      nodes.emplace_back( dNode );
+      paths.emplace_back( dPath );
+      mats.emplace_back( dMat );
+
+      // break if we found the target path to ensure the TAIL always points to desired node
+      //if( dPath.find( targetPath.c_str() ) ) break;
+      while( dPath.find("/") != string::npos ){
+	int idx = dPath.find("/");
+	dPath = dPath.substr(idx+1);
+      }
+      ididx = dPath.rfind("_");
+      dPath = dPath.substr( 0, ididx );
+      if( strcmp( dPath.c_str(), targetPath.c_str() ) == 0 ){ foundPath = true; break; }
+    } // loop over daughters
+
+    if( !foundPath ){ // prevent popping out of last element!
+      nodes.pop_front();
+      paths.pop_front();
+      mats.pop_front();
+      
+      test = paths.front();
+      while( test.find("/") != string::npos ){
+	int idx = test.find("/");
+	test = test.substr(idx+1);
+      }
+      ididx = test.rfind("_");
+      test = test.substr( 0, ididx );
+    }
+  } // while path not found
+
+  std::string final_path = paths.back();
+  while( final_path.find("/") != string::npos ){
+    int idx = final_path.find("/");
+    final_path = final_path.substr(idx+1);
+  }
+  ididx = final_path.rfind("_");
+  final_path = final_path.substr( 0, ididx );
+  assert( strcmp( final_path.c_str(), targetPath.c_str() ) == 0 && foundPath &&
+	  "Found the target volume's path in the ROOT geometry hierarchy" );
+  // found the path! The matrix is at the end.
+  TGeoMatrix * final_mat = mats.back();
+
+  const Double_t * final_tra = final_mat->GetTranslation();
+  const Double_t * final_rot = final_mat->GetRotationMatrix();
+
+  LOG( "HNL", pINFO )
+    << "Found the target volume! Here is its path and full matrix:"
+    << "\nPath: " << paths.back()
+    << "\nTranslations: ( " << final_tra[0] << ", " << final_tra[1] << ", " << final_tra[2]
+    << " ) [cm]"
+    << "\nRotation matrix: ( ( " 
+    << final_rot[0] << ", " << final_rot[1] << ", " << final_rot[2] << " ), ( "
+    << final_rot[3] << ", " << final_rot[4] << ", " << final_rot[5] << " ), ( "
+    << final_rot[6] << ", " << final_rot[7] << ", " << final_rot[8] << " ) )";
+
+  return final_mat;
 }
