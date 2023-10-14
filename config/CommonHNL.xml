@@ -24,7 +24,7 @@ April 11th, 2022
 <common_HNL_list>
 
   <param_set name="ParameterSpace">
-    <param type="double" name="HNL-Mass"> 0.150 </param> <!-- GeV -->
+    <param type="double" name="HNL-Mass"> 1e-6 </param> <!-- GeV -->
     <param type="vec-double" name="HNL-LeptonMixing" delim=";"> 1e-7 ; 1e-7 ; 0.0 </param>
     <param type="bool" name="HNL-Majorana"> false </param>
     <!-- <param type="int" name="HNL-Type"> 2 </param> --> <!-- 0 = pure-N, 1 = pure-Nbar, 2 = mix -->

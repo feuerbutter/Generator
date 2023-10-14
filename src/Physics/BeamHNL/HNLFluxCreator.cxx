@@ -499,7 +499,7 @@ FluxContainer FluxCreator::MakeTupleFluxEntry( int iEntry, std::string finpath )
   fSMECM = decay_necm;
   fZm = zm; fZp = zp;
 
-  double accCorr = this->CalculateAcceptanceCorrection( p4par, p4HNL_rest, decay_necm, zm, zp );
+  double accCorr = this->CalculateAcceptanceCorrection( p4par, p4HNL_REST, decay_necm, zm, zp );
 
   if(fKillAccCorr) accCorr = 1.0;
 
