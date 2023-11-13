@@ -43,7 +43,7 @@ April 11th, 2022
     <param type="bool" name="HNL-3B_nu_e_e"> true </param>
     <param type="bool" name="HNL-3B_nu_mu_e"> true </param>
     <param type="bool" name="HNL-3B_e_pi_pi0"> true </param>
-    <param type="bool" name="HNL-3B_mu_pi_pi0"> true </param>
+    <param type="bool" name="HNL-2B_mu_pi_pi0"> true </param>
     <param type="bool" name="HNL-3B_nu_pi0_pi0"> true </param>
   </param_set>
 
