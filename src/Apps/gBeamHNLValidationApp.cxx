@@ -137,7 +137,7 @@ typedef enum t_HNLValidation {
   kValFluxFromDk2nu   = 1,
   kValDecay           = 2,
   kValGeom            = 3,
-  kValFullSim         = 4
+  kValDecayingFlux    = 4
   
 } HNLValidation_t;
 
@@ -149,6 +149,9 @@ const EventRecordVisitorI * HNLGenerator(void);
 
 #ifdef __CAN_GENERATE_EVENTS_USING_A_FLUX__
 int      TestFluxFromDk2nu  (void);
+#ifdef __CAN_USE_ROOT_GEOM__
+int      TestDecayingFlux   (void);
+#endif
 #endif
 
 int      TestDecay          (void);
@@ -274,6 +277,7 @@ int main(int argc, char ** argv)
   case kValFluxFromDk2nu: return TestFluxFromDk2nu(); break;
   case kValDecay:         return TestDecay();         break;
   case kValGeom:          return TestGeom();          break;
+  case kValDecayingFlux:  return TestDecayingFlux();  break;
   default: LOG( "gevald_hnl", pFATAL ) << "I didn't recognise this mode. Goodbye world!"; break;
   }
 
@@ -546,7 +550,178 @@ int TestFluxFromDk2nu()
   return 0;
 }
 //............................................................................
-#endif // #ifdef __CAN_GENERATE_EVENTS_USING_A_FLUX_
+#ifdef __CAN_USE_ROOT_GEOM__
+//_________________________________________________________________________________________
+int TestDecayingFlux()
+{
+  assert( !gOptIsMonoEnFlux && gOptIsUsingDk2nu && "Provided input flux files" );
+
+  string foutName("test_decaying_flux.root");
+
+  const Algorithm * algFluxCreator = AlgFactory::Instance()->GetAlgorithm("genie::hnl::FluxCreator", "Default");
+
+  const FluxCreator * fluxCreator = dynamic_cast< const FluxCreator * >( algFluxCreator );
+
+  fluxCreator->SetInputFluxPath( gOptFluxFilePath );
+  bool geom_is_accessible = ! (gSystem->AccessPathName(gOptRootGeom.c_str()));
+  if (!geom_is_accessible) {
+    LOG("gevald_hnl", pFATAL)
+      << "The specified ROOT geometry doesn't exist! Initialization failed!";
+    exit(1);
+  }
+  if( !gOptRootGeoManager ) gOptRootGeoManager = TGeoManager::Import(gOptRootGeom.c_str()); 
+  if( !gOptTopVolSelected ){
+    TGeoVolume * main_volume = gOptRootGeoManager->GetTopVolume();
+    gOptTopVolName = main_volume->GetName();
+    LOG("gevald_hnl", pINFO) << "Using top volume name " << gOptTopVolName;
+  }
+  fluxCreator->SetGeomFile( gOptRootGeom, gOptTopVolName );
+
+  const Algorithm * algVtxGen = AlgFactory::Instance()->GetAlgorithm("genie::hnl::VertexGenerator", "Default");
+
+  // call the Decayer to ensure information gets processed right
+  __attribute__((unused)) const EventRecordVisitorI * mcgen = HNLGenerator();
+  const Algorithm * algHNLGen = AlgFactory::Instance()->GetAlgorithm("genie::hnl::Decayer", "Default");
+  const Decayer * hnlgen = dynamic_cast< const Decayer * >( algHNLGen );
+  
+  const VertexGenerator * vtxGen = dynamic_cast< const VertexGenerator * >( algVtxGen );
+  vtxGen->SetGeomFile( gOptRootGeom, gOptTopVolName );
+
+  int maxFluxEntries = -1;
+
+  TGeoVolume * top_volume = gOptRootGeoManager->GetVolume(gOptTopVolName.c_str());
+  assert( top_volume && "Top volume exists" );
+  TGeoShape * ts  = top_volume->GetShape();
+  __attribute__((unused)) TGeoBBox *  box = (TGeoBBox *)ts;
+
+  TFile * fout = TFile::Open( foutName.c_str(), "RECREATE" );
+  TH1D hAcceptance, hCrossing, hDecaying;
+  TH1D hParamSpace; // to store mass + couplings
+  hAcceptance = TH1D( "hAcceptance", "Geometrical acceptance of neutrinos", 1000, 0., 100. );
+  hCrossing   = TH1D( "hCrossing", "Flux of neutrinos that cross the detector", 1000, 0., 100. );
+  hDecaying   = TH1D( "hDecaying", "Flux of neutrinos that decay in the detector", 1000, 0., 100. );
+  hParamSpace = TH1D( "hParamSpace", "Parameter space", 5, 0., 5. );
+
+  double PSurv, PDec; double nimpwt, acceptance;
+  TLorentzVector p4HNL;
+  int ievent = 0;
+  while(true)
+    {
+      if( gOptNev >= 10000 ){
+	if( ievent % (gOptNev / 1000) == 0 ){
+	  int irat = ievent / (gOptNev / 1000);
+	  std::cerr << Form("%2.2f", 0.1 * irat) << " % ( " << ievent << " / "
+		    << gOptNev << " ) \r" << std::flush;
+	}
+      } else if( gOptNev >= 100 ) {
+	if( ievent % (gOptNev / 10) == 0 ){
+	  int irat = ievent / ( gOptNev / 10 );
+	  std::cerr << 10.0 * irat << " % " << " ( " << ievent
+		    << " / " << gOptNev << " ) \r" << std::flush;
+	}
+      }
+      
+      if( ievent == gOptNev ) break;
+
+      EventRecord * event = new EventRecord;
+      event->SetXSec( ievent ); // will be overridden, use as handy container
+
+      fluxCreator->ProcessEventRecord(event);
+      //event->Particle(0)->SetFirstMother(-2);
+      
+      // fluxCreator->ProcessEventRecord now tells us how many entries there are
+      maxFluxEntries = fluxCreator->GetNFluxEntries();
+      if( gOptNev > maxFluxEntries ){
+	LOG( "gevgen_hnl", pWARN )
+	  << "You have asked for " << gOptNev << " events, but only provided "
+	  << maxFluxEntries << " flux entries. Truncating events to " << maxFluxEntries << ".";
+	gOptNev = maxFluxEntries;
+      }
+      
+      FluxContainer vgnmf = fluxCreator->RetrieveFluxInfo();
+      FluxContainer * gnmf = &vgnmf;
+      
+      // reject nonsense
+      if( gnmf->Ecm < 0 ){
+	
+	LOG( "gevald_hnl", pDEBUG )
+	  << "Skipping nonsense for event " << ievent << " (was this parent too light?)";
+
+      } else {
+	// now to make stuff from this... i.e. fill histos
+	
+	p4HNL = gnmf->p4; // NEAR coords, GeV
+	acceptance = gnmf->acceptance;
+	nimpwt = gnmf->nimpwt;
+	
+	// update the event vertex to the USER frame end point == where the flux was eval'ed...
+	// This is because the VertexGenerator actually uses that to figure out where the ray came from and goes
+	TVector3 startpoint = gnmf->startPointUser; // USER coords
+	TVector3 endpoint   = gnmf->targetPointUser;
+	TLorentzVector userStart( startpoint.X(), startpoint.Y(), startpoint.Z(), event->Vertex()->T() );
+	TLorentzVector userEnd( endpoint.X(), endpoint.Y(), endpoint.Z(), event->Vertex()->T() );
+	event->SetVertex( userEnd );
+
+	// run the Decayer first.
+	Interaction * interaction = Interaction::HNL(genie::kPdgHNL, p4HNL.E(), 0); // always set vvv
+
+	if( event->Particle(0) ){ // we have an HNL with definite momentum, so let's set it now
+	  interaction->InitStatePtr()->SetProbeP4( *(event->Particle(0)->P4()) );
+	  interaction->InitStatePtr()->SetProbePdg( event->Particle(0)->Pdg() );
+	  LOG( "gevald_hnl", pDEBUG )
+	    << "\nsetting probe p4 = " << utils::print::P4AsString( event->Particle(0)->P4() );
+	}
+	
+	event->AttachSummary(interaction);
+	hnlgen->ProcessEventRecord(event);
+
+	// Update the event Probability(), which is the HNL lifetime
+	CoMLifetime = hnlgen->GetHNLLifetime(); // GeV^{-1}
+	event->SetProbability( CoMLifetime );
+	// now run the VertexGenerator
+	// first, set the flux target correctly..
+	event->Particle(1)->SetPosition( userEnd );
+	vtxGen->ProcessEventRecord(event);
+	
+	// The survival and decay probabilities are a bit more tricky. 
+	// Obtain these from the TIME components of the x4 from Particle(1,2);
+        PSurv = event->Particle(1)->Vt();
+	PDec = event->Particle(2)->Vt();
+		
+	// fill the histos!
+	hAcceptance.Fill( p4HNL.E(), acceptance * nimpwt );
+	hCrossing.Fill( p4HNL.E(), acceptance * nimpwt * PSurv );
+	hDecaying.Fill( p4HNL.E(), acceptance * nimpwt * PSurv * PDec );
+	
+	LOG( "gevald_hnl", pDEBUG )
+	  << " *** Output for event no " << ievent << "... ***"
+	  << "\np4HNL = " << utils::print::P4AsString( &p4HNL ) << " [GeV] "
+	  << "\nacceptance = " << acceptance
+	  << "\nnimpwt = " << nimpwt
+	  << "\nPSurv, PDec = " << PSurv << ", " << PDec;
+
+      } // if not nonsense
+
+      // clean up
+      delete event;
+
+      ievent++;
+    }
+
+  hParamSpace.SetBinContent( 1, 1000.0 * gCfgMassHNL ); // MeV
+  hParamSpace.SetBinContent( 2, gCfgECoupling );
+  hParamSpace.SetBinContent( 3, gCfgMCoupling );
+  hParamSpace.SetBinContent( 4, gCfgTCoupling );
+
+  fout->Write();
+  fout->Close();
+
+  return 0;
+}
+//............................................................................
+#endif // #ifdef __CAN_USE_ROOT_GEOM__
+//............................................................................
+#endif // #ifdef __CAN_GENERATE_EVENTS_USING_A_FLUX__
 //_________________________________________________________________________________________
 int TestDecay(void)
 {

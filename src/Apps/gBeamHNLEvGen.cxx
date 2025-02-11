@@ -467,14 +467,18 @@ int main(int argc, char ** argv)
 
      event->AttachSummary(interaction);
 
+     LOG("gevgen_hnl", pDEBUG) << "pt 1" << evWeight;
+
      // Simulate decay
      hnlgen->ProcessEventRecord(event);
      
+     LOG("gevgen_hnl", pDEBUG) << "pt 2" << evWeight;
      // for now, set the X4() of Particle(1) to be the point at which the flux needs to go.
      event->Particle(1)->SetPosition( retGnmf.targetPointUser.X(), 
 				      retGnmf.targetPointUser.Y(),
 				      retGnmf.targetPointUser.Z(), 0.0 );
 
+     LOG("gevgen_hnl", pDEBUG) << "pt 3" << evWeight;
      /*
      // add the FS 4-momenta to special branches
      // Quite inelegant. Gets the job done, though
